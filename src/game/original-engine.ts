@@ -705,7 +705,7 @@ export class OriginalEngine {
         if(point.stage==='idle'&&(pickup.taken||pickup.sector!==this.state.checkpoint+1))continue
         const event=point.step(dt*1000,player)
         if(event.activated){pickup.taken=true;this.audio.effect('Extra_Start')}
-        if(event.hits.length)this.audio.effect('Extra_Hit')
+        if(event.hits.length){this.audio.effect('Extra_Hit');pickup.visual?.collect(event.hits,this.elapsed)}
         this.state.time+=event.points/2
         if(event.ready&&pickup.mesh)pickup.mesh.visible=false
       } else if(!pickup.taken&&pickup.sector===this.state.checkpoint+1&&pickup.position.distanceTo(player)<4.5*SCALE) {
@@ -716,7 +716,7 @@ export class OriginalEngine {
   }
   private cancelPointExtras() {
     for(const pickup of this.pickups)if(pickup.taken&&pickup.visual?.point) {
-      pickup.visual.point.cancel();if(pickup.mesh)pickup.mesh.visible=false
+      pickup.visual.cancel();if(pickup.mesh)pickup.mesh.visible=false
     }
   }
   pause() { if (this.loading) return; if (this.state.phase === 'playing') this.state.phase = 'paused'; else if (this.state.phase === 'paused') this.state.phase = 'playing'; this.last=0;this.keys.clear();this.touch={x:0,z:0,brake:false};this.cameraStickDirection=0; this.audio.paused = this.state.phase !== 'playing'; this.audio.sync(); if (this.transformation.active) this.audio.resumeEffect('Misc_Trafo'); this.emit() }

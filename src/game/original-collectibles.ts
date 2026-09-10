@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { originalGeometry, SCALE } from './original-data.ts'
 import type { OriginalDocument } from './original-data.ts'
 
-import {OriginalPointTrails,POINT_TRAIL,POINT_SATELLITES} from './original-point-trails.ts'
+import {OriginalPointTrails,OriginalPointBurst,POINT_TRAIL,POINT_SATELLITES} from './original-point-trails.ts'
 import {OriginalPointExtra} from './original-point-extra.ts'
 export {POINT_SATELLITES} from './original-point-trails.ts'
 export class OriginalCollectibleAssets {
@@ -61,6 +61,7 @@ export class OriginalCollectible {
   private satellites: THREE.Sprite[] = []
   private bubble?: THREE.Mesh
   private trails?: OriginalPointTrails
+  private bursts?: OriginalPointBurst
   private life: boolean
   point?:OriginalPointExtra
   private center:THREE.Sprite
@@ -74,6 +75,7 @@ export class OriginalCollectible {
     } else {
       this.point=new OriginalPointExtra(position)
       this.trails=new OriginalPointTrails(assets.trail);this.group.add(this.trails.mesh)
+      this.bursts=new OriginalPointBurst(assets.trail);this.group.add(this.bursts.mesh)
       for (const point of POINT_SATELLITES) {
         const sprite = assets.sprite(.125); sprite.position.set(point[0]! * SCALE, point[1]! * SCALE, -point[2]! * SCALE)
         this.animated.add(sprite); this.satellites.push(sprite)
@@ -94,7 +96,18 @@ export class OriginalCollectible {
         this.satellites[i]!.visible=point.visible[i]!
       }
       this.trails?.update(time,this.satellites.map(s=>s.position),point.visible)
+      this.bursts?.update(time)
     }
   }
-  dispose() { this.trails?.dispose(); this.group.removeFromParent(); this.group.clear() }
+  collect(indices:number[],time:number) {
+    const point=this.point
+    if(point)for(const i of indices) {
+      const position=point.positions[i]
+      if(position)this.bursts?.emit(position.clone().sub(point.origin),time)
+    }
+  }
+  cancel() {
+    this.point?.cancel();this.bursts?.clear()
+  }
+  dispose() { this.trails?.dispose();this.bursts?.dispose(); this.group.removeFromParent(); this.group.clear() }
 }

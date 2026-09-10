@@ -43,6 +43,42 @@ export class OriginalPointTrailState {
     }
   }
 }
+/** Reconstructed silver hit-burst: the original fires the Hitframe script on
+ * every satellite hit, but no authored burst parameters survive in the dumps,
+ * so count, spread, lifetime and fade are visual placeholders. */
+export const POINT_BURST={count:10,lifetime:1,speed:4*SCALE} as const
+const burstDirs=Array.from({length:POINT_BURST.count},(_,i)=>{
+  const t=(i+.5)/POINT_BURST.count,phi=Math.acos(1-2*t),theta=Math.PI*(1+Math.sqrt(5))*i
+  return new THREE.Vector3(Math.sin(phi)*Math.cos(theta),Math.cos(phi),Math.sin(phi)*Math.sin(theta))
+})
+type Puff={origin:THREE.Vector3;velocity:THREE.Vector3;born:number}
+export class OriginalPointBurst {
+  private puffs:Puff[]=[]
+  private readonly positions=new Float32Array(POINT_BURST.count*6*3)
+  private readonly ages=new Float32Array(POINT_BURST.count*6)
+  readonly geometry=new THREE.BufferGeometry()
+  readonly mesh:THREE.Points
+  constructor(material:THREE.PointsMaterial) {
+    this.geometry.setAttribute('position',new THREE.BufferAttribute(this.positions,3).setUsage(THREE.DynamicDrawUsage))
+    this.geometry.setAttribute('trailAge',new THREE.BufferAttribute(this.ages,1).setUsage(THREE.DynamicDrawUsage))
+    this.geometry.setDrawRange(0,0)
+    this.mesh=new THREE.Points(this.geometry,material);this.mesh.frustumCulled=false
+  }
+  emit(origin:THREE.Vector3,time:number) {
+    for(const dir of burstDirs) {
+      if(this.puffs.length>=POINT_BURST.count*6)this.puffs.shift()
+      this.puffs.push({origin:origin.clone(),velocity:dir.clone().multiplyScalar(POINT_BURST.speed),born:time})
+    }
+  }
+  clear(){this.puffs=[];this.geometry.setDrawRange(0,0)}
+  update(time:number) {
+    this.puffs=this.puffs.filter(p=>time-p.born<POINT_BURST.lifetime)
+    this.puffs.forEach((p,i)=>{p.origin.clone().addScaledVector(p.velocity,time-p.born).toArray(this.positions,i*3);this.ages[i]=time-p.born})
+    this.geometry.setDrawRange(0,this.puffs.length)
+    this.geometry.attributes.position!.needsUpdate=true;this.geometry.attributes.trailAge!.needsUpdate=true
+  }
+  dispose(){this.mesh.removeFromParent();this.geometry.dispose();this.puffs=[]}
+}
 export class OriginalPointTrails {
   state=new OriginalPointTrailState()
   geometry=new THREE.BufferGeometry()

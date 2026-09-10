@@ -83,6 +83,9 @@ check the paused activation state retained all six satellites. Advancing two
 seconds collected them all: time rose from 528.900000 to 586.900000 seconds,
 accounting for 60 seconds of rewards and two seconds of countdown.
 
-This adapter does not yet reproduce the original silver hit-burst particle
-systems, all script activation scheduling, or float32 rounding at every vector
-operation. Those remain parity gaps; unit tests do not prove all-level parity.
+Each collected satellite now emits a short additive puff at its position through
+the shared ExtraParticle texture. The original fires each Hitframe script on
+collection, but no authored burst count, spread, lifetime or fade survives in
+the dumps, so those values are visual placeholders awaiting an oracle
+side-by-side. All script activation scheduling and float32 rounding at every
+vector operation remain parity gaps; unit tests do not prove all-level parity.
