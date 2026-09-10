@@ -6,6 +6,10 @@ any time; entries below are fork-only unless noted.
 
 ## [Unreleased]
 
+### Fixed
+- Checkpoint handoff: the next trigger now waits the recovered two script
+  frames before going live (Gameplay `activate next Checkpoint` link).
+
 ## [0.1.0] - 2026-09-10
 
 First public test package.
