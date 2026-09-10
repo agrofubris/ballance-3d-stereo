@@ -195,5 +195,12 @@
       "destination": 244,
       "delayFrames": 0
     }
-  ]
+  ],
+  "nextActivation": {
+    "source": "Gameplay.nmo: activate next Checkpoint",
+    "repositionDelayFrames": 2,
+    "resetColumn": 4,
+    "resetValue": false,
+    "enableValue": true
+  }
 }

@@ -426,16 +426,17 @@ export class OriginalEngine {
     else this.audio.roll(this.state.material,0,false)
     this.audio.effect('Misc_Trafo')
   }
-  private armCheckpoint() {
+  private armCheckpoint(next=false) {
     const checkpoint=this.checkpoints[this.state.checkpoint]
     this.checkpointTrigger=checkpoint?new OriginalCheckpoint(checkpoint.object):undefined
+    if(next)this.checkpointTrigger?.activateNext()
     if(this.checkpointTrigger)this.checkpointScripts[this.state.checkpoint]=this.checkpointTrigger
   }
   private reachCheckpoint() {
     this.cancelPointExtras()
     this.state.checkpoint++;this.checkpointMaterial=this.state.material
     this.audio.effect('Misc_Checkpoint');this.message('Checkpoint')
-    this.armCheckpoint()
+    this.armCheckpoint(true)
   }
   cancelTransformation() {
     this.transformation.cancel(); this.transformerVisual?.reset(); this.ball.visible = true

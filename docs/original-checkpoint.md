@@ -21,8 +21,11 @@ watcher. That watcher uses the same 70-unit range but a 20–100-frame polling
 interval. Revisiting a collected checkpoint can relight its side flames but
 never sends another checkpoint event. Unactivated future checkpoints have no
 flame scripts running. Gameplay's next-checkpoint graph resets the next script
-with CurrentLevel column 4 false before positioning and enabling it; its
-two-frame reposition link is not yet reproduced by this adapter.
+with CurrentLevel column 4 false before positioning and enabling it. The
+two-frame reposition link (Gameplay `activate next Checkpoint`, link 5250 from
+script activation to Set World Matrix) is reproduced: a freshly activated next
+trigger ignores its first two script frames, matching the recovered
+`nextActivation.repositionDelayFrames`.
 
 The engine samples the current trigger before native physics and activates the
 new sector for that frame. It saves the current ball material and uses the

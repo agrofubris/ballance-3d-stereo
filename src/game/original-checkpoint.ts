@@ -14,12 +14,19 @@ export class OriginalCheckpoint {
   armed=false
   reached=false
   smallFlames=false
+  private activationDelay=0
   constructor(object:OriginalObject) {
     const frame=new THREE.Matrix4().fromArray(object.matrix)
     this.origin=new THREE.Vector3().setFromMatrixPosition(frame)
     this.center=new THREE.Vector3().setFromMatrixPosition(frame.multiply(new THREE.Matrix4().fromArray(data.frame)))
   }
+  /** The activate-next graph repositions the next script this many script
+   * frames after activation; the trigger stays dead until then. */
+  activateNext() {
+    this.activationDelay=data.nextActivation.repositionDelayFrames
+  }
   sample(player:THREE.Vector3) {
+    if(this.activationDelay>0){this.activationDelay--;return false}
     if(this.reached) {
       this.sampleSmallFlames(player)
       return false
