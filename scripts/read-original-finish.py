@@ -3,7 +3,7 @@
 import argparse
 import json
 import struct
-from original_chunks import ChunkDump
+from original_chunks import ChunkDump, chunks
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dump')
@@ -85,4 +85,33 @@ assert [gameplay_values(i) for i in gameplay.definition(5664)['children']] == [[
 result['presentation'] = dict(source='Gameplay.nmo', skyFadeMs=gameplay_values(5800)[0],
                               waitMs=gameplay_values(5726)[0], lastLevelWaitMs=gameplay_values(5726)[1],
                               skipKeys=['Escape','Enter','Space'])
+def color_param(index):
+    kind, name, data = gameplay.rows[index]
+    if kind == 2:
+        return color_param(struct.unpack_from('<I', data, 24)[0])
+    assert kind == 45, (index, kind, name)
+    offset = chunks(data)[0x40]
+    assert data[offset:offset + 8].hex() == 'ee2fd457913bbb7c', (index, name)
+    assert struct.unpack_from('<I', data, offset + 8)[0] == 1, (index, name)
+    length, = struct.unpack_from('<I', data, offset + 12)
+    assert length == 16, (index, name, length)
+    return list(struct.unpack_from('<4f', data, offset + 16))
+# The boarding message drives fadeout Sky: a 3000 ms linear progression feeds an
+# RGB interpolator whose output sets the sky layer's prelit color from overbright
+# white to black. The additional color stays zero and HSV interpolation is off.
+fade = gameplay.definition(5837)
+fade_children = {gameplay.rows[i][1]: i for i in fade['children']}
+assert set(fade_children) == {'Linear Progression', 'Set Prelit Color', 'Interpolator', 'Test'}, fade_children
+interp = gameplay.definition(fade_children['Interpolator'])
+def param_name(index):
+    kind, name, data = gameplay.rows[index]
+    if kind == 2:
+        return gameplay.rows[struct.unpack_from('<I', data, 24)[0]][1]
+    return name
+assert [param_name(i) for i in interp['inputs'][:2]] == ['A', 'B'], interp['inputs']
+fade_from = color_param(interp['inputs'][0]); fade_to = color_param(interp['inputs'][1])
+setter = gameplay.definition(fade_children['Set Prelit Color'])
+assert setter['target'] == 'SkyLayer Entity', setter
+assert gameplay_values(5800) == [3000.0, 0.0, 1.0]
+result['presentation']['skyFade'] = dict(target='SkyLayer Entity', fadeFrom=fade_from, fadeTo=fade_to)
 print(json.dumps(result, indent=2))

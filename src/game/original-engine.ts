@@ -373,7 +373,7 @@ export class OriginalEngine {
   respawn(hold=false,resetSector=true) {
     if(!hold)this.respawnSequence.reset()
     this.musicResetAge=musicData.resetDelayMs/1000;this.musicProximity.restart()
-    this.endingAge=undefined
+    this.endingAge=undefined;this.scene.backgroundIntensity=1
     this.ufo?.reset();this.endingCamera.reset()
     this.debris?.clearIvp()
     if (!this.body || !this.resets.length) return
@@ -500,6 +500,9 @@ export class OriginalEngine {
       this.audio.contacts(this.native.sound.frame)
       this.syncNativePlayer();this.debris?.stepIvp(dt)
       const timing=finishData.presentation
+      const fadeT=Math.min(1,(this.endingAge*1000)/timing.skyFadeMs)
+      const fadeFrom=timing.skyFade.fadeFrom[0]!,fadeTo=timing.skyFade.fadeTo[0]!
+      this.scene.backgroundIntensity=fadeFrom+(fadeTo-fadeFrom)*fadeT
       if(this.endingAge*1000>=timing.skyFadeMs+(this.state.level===11?timing.lastLevelWaitMs:timing.waitMs))this.completeCourse()
       return
     }
@@ -758,7 +761,7 @@ export class OriginalEngine {
   resize = () => { const w = this.host.clientWidth, h = this.host.clientHeight; this.camera.aspect = w / Math.max(h, 1); this.camera.updateProjectionMatrix();this.renderer.setPixelRatio(this.renderBudget.configure(w,h,devicePixelRatio,this.settings.quality,this.coarsePointer)); this.renderer.setSize(w, h); const size = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.stereo.resize(size.x, size.y) }
   clearLevel() {
     this.respawnSequence.reset();this.respawnFilter.style.display='none'
-    this.endingAge=undefined
+    this.endingAge=undefined;this.scene.backgroundIntensity=1
     this.endingCamera.reset()
     this.audio.music.clear();this.audio.sync()
     this.audio.contacts({rolls:[],impacts:[]})

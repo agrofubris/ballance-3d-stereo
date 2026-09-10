@@ -34,6 +34,16 @@ for the recovered Gameplay timing: a 3000 ms sky-transition interval followed by
 10000 ms on ordinary levels or 23000 ms on the last level. Escape, Enter or Space
 can skip the wait after the first interval.
 
+The 3000 ms interval drives `fadeout Sky`: a linear progression feeds an RGB
+(no-HSV) interpolator from prelit `(0.784, 0.784, 0.784, 1)` to opaque black,
+written each frame to the SkyLayer Entity with a zero additional color
+(`read-original-finish.py` asserts the graph, endpoints and target). The port
+renders the sky as a background texture rather than a prelit entity, and the
+recovered ramp is gray, so the ending maps it onto `scene.backgroundIntensity`
+over the same interval. The authored start value is below the port's normal
+`1`, so the first ending frame steps down slightly before fading; matching the
+`reset Sky` authored baseline outside the ending is follow-up work.
+
 Verification:
 
 - Every level creates all 18 bodies and 19 joint handles; approach starts eight
@@ -48,8 +58,7 @@ Verification:
   Level 1 playthrough.
 - The complete suite passed 143 tests, with no skips; lint and build passed.
 
-Remaining fidelity work: the source's sky-layer color transition is timed but
-not rendered yet; the final-level UFO/hyperspace choreography is not implemented.
+Remaining fidelity work: the final-level UFO/hyperspace choreography is not implemented.
 The detailed camera parenting, exact message-driven sound transitions and result
 presentation still need source-faithful integration. A straight full-throttle
 stone approach fell off the bridge in a probe; that observation does not prove a
