@@ -29,6 +29,7 @@ audio_names = ['Music_Theme_1_1', 'Music_Atmo_1', 'Misc_Checkpoint', 'Misc_Start
 audio_names += [f'Roll_{ball}_{surface}' for ball in ['Wood', 'Stone'] for surface in ['Wood', 'Metal']]
 audio_names.append('Misc_RopeTears')
 audio_names.append('Misc_UFO_anim')
+audio_names.append('Misc_Lightning')
 audio_names += ['Menu_click', 'Menu_dong', 'Menu_load', 'Menu_counter', 'Menu_atmo']
 music_data=json.loads((Path(__file__).parent.parent/'src/game/original-music-data.json').read_text())
 audio_names += music_data['ambient'] + ['Music_Final','Music_LastFinal']

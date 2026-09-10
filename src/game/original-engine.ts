@@ -42,6 +42,7 @@ import {OriginalCamera} from './original-camera'
 import {OriginalCheckpoint} from './original-checkpoint'
 import checkpointData from './original-checkpoint-data.json'
 import {OriginalRespawn} from './original-respawn'
+import {OriginalSpawnEffect, SPAWN_DURATION} from './original-spawn'
 import {batchOriginalScene} from './original-render-batching'
 import {OriginalRenderBudget} from './original-render-budget'
 import {StereoRenderer} from './stereo-renderer'
@@ -72,6 +73,8 @@ export class OriginalEngine {
   readonly endingCamera=new OriginalEndingCamera()
   readonly gameCamera=new OriginalCamera()
   readonly respawnSequence=new OriginalRespawn()
+  spawnEffect?: OriginalSpawnEffect
+  private spawnAge?: number
   private respawnFilter=document.createElement('div')
   private cameraInputFrame=new THREE.Matrix4().elements
   private musicProximity=new OriginalProximity(musicData.proximity)
@@ -171,6 +174,9 @@ export class OriginalEngine {
       mesh.castShadow = true; mesh.receiveShadow = true; this.ballModels.set(kind, mesh)
     }
     this.debris = new OriginalDebris(balls, materials);batchOriginalScene(this.debris.group); this.scene.add(this.debris.group)
+    this.spawnEffect = new OriginalSpawnEffect(balls, materials); this.scene.add(this.spawnEffect.group)
+    await this.spawnEffect.load()
+    if (this.disposed) { this.spawnEffect.dispose(); return }
     const animation = await loadOriginal('animtrafo')
     const animationMaterials = await this.transformerMaterials.create(animation)
     if (this.disposed) { this.transformerMaterials.dispose(); return }
@@ -255,9 +261,11 @@ export class OriginalEngine {
     this.body = this.physics.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setCcdEnabled(true).setCanSleep(false))
     // Start timing at the next RAF timestamp. performance.now() can be later
     // than the timestamp of an already queued RAF callback after asset loading.
-    this.transform('wood', false); this.respawn();batchOriginalScene(this.worldGroup);batchOriginalScene(this.ball); this.loading = false; this.last = 0; this.accumulator = 0
+    this.transform('wood', false); this.respawn(true)
+    const start = this.body!.translation(); this.spawnEffect?.begin(new THREE.Vector3(start.x, start.y, start.z)); this.spawnAge = 0
+    batchOriginalScene(this.worldGroup);batchOriginalScene(this.ball); this.loading = false; this.last = 0; this.accumulator = 0
     this.audio.music.start(index);this.musicProximity=new OriginalProximity(musicData.proximity);this.musicInitialExit=true;this.musicResetAge=0
-    this.audio.paused = false; this.audio.sync(); this.audio.effect('Misc_StartLevel'); this.emit()
+    this.audio.paused = false; this.audio.sync(); this.audio.effect('Misc_StartLevel'); this.audio.effect('Misc_Lightning'); this.emit()
   }
   addModule(parent: OriginalObject, document: OriginalDocument, materials: Map<number, THREE.MeshPhongMaterial>, sector: number, depthEligible = false) {
     if(this.nativeModule&&parent.name.startsWith('PE_Balloon_')) {
@@ -464,8 +472,13 @@ export class OriginalEngine {
         this.cancelTransformation();this.native?.capture();this.body!.setEnabled(false);this.ball.visible=false
         this.state.lives--;this.resetSectorObjects()
       }
-      if(event==='position-ball')this.respawn(true,false)
+      if(event==='position-ball') {
+        this.respawn(true,false)
+        const position=this.body!.translation();this.spawnEffect?.begin(new THREE.Vector3(position.x,position.y,position.z))
+        this.audio.effect('Misc_Lightning')
+      }
       if(event==='physicalize-ball') {
+        this.spawnEffect?.end()
         this.native?.material(this.state.material);this.body!.setEnabled(true);this.ball.visible=true
       }
       if(event==='ready') {
@@ -475,16 +488,36 @@ export class OriginalEngine {
       }
     }
     this.elapsed+=dt
+    if(this.spawnEffect?.active)this.spawnEffect.update(dt)
     if(this.native) {
       this.native.input(new Set(),this.yaw)
       for(const sound of this.native.step(dt*1000))this.audio.effect(sound)
       this.audio.contacts(this.native.sound.frame);this.syncNativePlayer();this.debris?.stepIvp(dt)
     } else {this.physics!.timestep=dt;this.physics!.step()}
   }
+  private stepSpawn(dt:number) {
+    this.spawnAge=(this.spawnAge??0)+dt
+    this.spawnEffect?.update(dt)
+    this.elapsed+=dt
+    if(this.native) {
+      this.native.input(new Set(),this.yaw)
+      for(const sound of this.native.step(dt*1000))this.audio.effect(sound)
+      this.audio.contacts(this.native.sound.frame);this.syncNativePlayer()
+    } else {this.physics!.timestep=dt;this.physics!.step()}
+    if(this.spawnAge>=SPAWN_DURATION) {
+      this.spawnAge=undefined
+      this.spawnEffect?.end()
+      this.native?.material(this.state.material);this.body!.setEnabled(true);this.ball.visible=true
+      const body=this.native?.player.body
+      if(body!==undefined)this.native!.world.wake(body)
+      this.native?.deathTest.restart()
+    }
+  }
   step(dt: number) {
     if (!this.physics || !this.body) return
     this.audio.stepMusic(dt)
     if(this.respawnSequence.active){this.stepRespawn(dt);return}
+    if(this.spawnAge!==undefined){this.stepSpawn(dt);return}
     if(this.finish&&this.state.checkpoint===this.checkpoints.length&&this.endingAge===undefined) {
       this.audio.music.lastCheckpoint()
       this.musicResetAge=Math.max(0,this.musicResetAge-dt)
@@ -762,6 +795,7 @@ export class OriginalEngine {
   resize = () => { const w = this.host.clientWidth, h = this.host.clientHeight; this.camera.aspect = w / Math.max(h, 1); this.camera.updateProjectionMatrix();this.renderer.setPixelRatio(this.renderBudget.configure(w,h,devicePixelRatio,this.settings.quality,this.coarsePointer)); this.renderer.setSize(w, h); const size = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.stereo.resize(size.x, size.y) }
   clearLevel() {
     this.respawnSequence.reset();this.respawnFilter.style.display='none'
+    this.spawnAge=undefined;this.spawnEffect?.end()
     this.endingAge=undefined;this.scene.backgroundIntensity=1
     this.endingCamera.reset()
     this.audio.music.clear();this.audio.sync()
@@ -799,6 +833,6 @@ export class OriginalEngine {
     this.respawnFilter.remove()
     this.disposed = true; this.generation++; cancelAnimationFrame(this.frame); this.observer.disconnect()
     window.removeEventListener('keydown', this.keydown); window.removeEventListener('keyup', this.keyup); window.removeEventListener('blur', this.blur); window.removeEventListener('pointerdown', this.unlock)
-    this.gamepad.dispose(); this.clearLevel(); this.collectibleAssets?.dispose(); this.collectibleMaterials.forEach(m => m.dispose()); this.debris?.dispose(); this.transformerVisual?.dispose(); this.transformerMaterials.dispose(); this.ballModels.forEach(m => m.geometry.dispose()); this.ballMaterials.dispose(); this.flameTexture?.dispose(); this.smokeTexture?.dispose(); this.audio.dispose(); this.fallbackMaterial.dispose(); this.shadowLight.shadow.dispose(); this.stereo.dispose(); this.renderer.dispose(); this.renderer.domElement.remove()
+    this.gamepad.dispose(); this.clearLevel(); this.collectibleAssets?.dispose(); this.collectibleMaterials.forEach(m => m.dispose()); this.debris?.dispose(); this.spawnEffect?.dispose(); this.spawnEffect=undefined; this.transformerVisual?.dispose(); this.transformerMaterials.dispose(); this.ballModels.forEach(m => m.geometry.dispose()); this.ballMaterials.dispose(); this.flameTexture?.dispose(); this.smokeTexture?.dispose(); this.audio.dispose(); this.fallbackMaterial.dispose(); this.shadowLight.shadow.dispose(); this.stereo.dispose(); this.renderer.dispose(); this.renderer.domElement.remove()
   }
 }
