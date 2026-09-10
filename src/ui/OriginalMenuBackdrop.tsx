@@ -9,11 +9,13 @@ import data from '../game/original-ui-data.json'
 export function OriginalMenuBackdrop({stereo=DEFAULT_STEREO_SETTINGS}:{stereo?:StereoSettings}) {
   const host=useRef<HTMLDivElement>(null)
   const compositor=useRef<StereoRenderer|null>(null)
+  const stereoAtMount=useRef(stereo)
   useEffect(()=>{compositor.current?.setSettings(stereo)},[stereo])
   useEffect(()=> {
     const target=host.current!,scene=new THREE.Scene(),resources=new OriginalMaterials()
     const renderer=new THREE.WebGLRenderer({antialias:true}),camera=new THREE.PerspectiveCamera(45,1,.25,300)
     const stereoRenderer=new StereoRenderer(renderer);compositor.current=stereoRenderer
+    stereoRenderer.setSettings(stereoAtMount.current)
     renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setPixelRatio(Math.min(devicePixelRatio,2))
     target.append(renderer.domElement)
     const eye=data.menuCamera.slice(9),look=data.menuTarget.slice(12,15)
