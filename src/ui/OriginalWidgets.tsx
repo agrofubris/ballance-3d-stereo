@@ -17,8 +17,8 @@ export function OriginalLabel({name,children,scale=[.35,.4]}:{name:string;childr
   const title=name.endsWith('Title')
   return <div className={`original-label ${title?'menu-title':''}`} data-sprite={name}><OriginalText scale={scale}>{children}</OriginalText></div>
 }
-export function OriginalHud({points,lives}:{points:number;lives:number}) {
-  return <div className="original-hud">
+export function OriginalHud({points,lives,className='',hidden=false}:{points:number;lives:number;className?:string;hidden?:boolean}) {
+  return <div className={`original-hud ${className}`} aria-hidden={hidden||undefined}>
     <div className="original-points" role="status" aria-label={`${points} time points`}>{points}</div>
     <div className="original-lives" aria-label={`${lives} extra lives`}>
       {Array.from({length:Math.max(0,Math.min(10,lives))},(_,index)=><span className="original-life" key={index}/>)}
