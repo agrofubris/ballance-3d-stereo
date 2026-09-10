@@ -81,8 +81,6 @@ export class StereoRenderer {
         uniform float mode;
         varying vec2 vUv;
         void main() {
-          vec4 left;
-          vec4 right;
           if (mode < 2.5) {
             // Side-by-side views use half-width render targets so geometry is
             // not stretched when the two images share the output canvas.
@@ -93,13 +91,16 @@ export class StereoRenderer {
               if (mode < 1.5) gl_FragColor = texture2D(rightTexture, vec2((vUv.x - 0.5) * 2.0, vUv.y));
               else gl_FragColor = texture2D(leftTexture, vec2((vUv.x - 0.5) * 2.0, vUv.y));
             }
-            return;
+          } else {
+            // gl_FragCoord is bottom-up, matching WebGL texture coordinates.
+            bool useLeft = mod(floor(gl_FragCoord.y), 2.0) < 1.0;
+            if (mode > 3.5) useLeft = !useLeft;
+            if (useLeft) gl_FragColor = texture2D(leftTexture, vUv);
+            else gl_FragColor = texture2D(rightTexture, vUv);
           }
-          // gl_FragCoord is bottom-up, matching WebGL texture coordinates.
-          bool useLeft = mod(floor(gl_FragCoord.y), 2.0) < 1.0;
-          if (mode > 3.5) useLeft = !useLeft;
-          if (useLeft) gl_FragColor = texture2D(leftTexture, vUv);
-          else gl_FragColor = texture2D(rightTexture, vUv);
+          // Eye targets hold linear working-space color like any intermediate
+          // target; convert on the way out so stereo matches the mono path.
+          #include <colorspace_fragment>
         }
       `,
       depthTest: false,
