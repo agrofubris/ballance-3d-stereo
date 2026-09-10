@@ -1,5 +1,12 @@
 # Third-party source references
 
+This project is based on [fayazara/ballance](https://github.com/fayazara/ballance)
+by Fayaz Ara (no license file in the original at time of writing; all rights
+reserved by its author). Changes in this copy: stereo 3D output modes,
+controller rebinding options, portable Windows Setup/Launch scripts, and a
+vendored BMap converter build. Original authorship remains with the upstream
+project; this copy only adds the modifications listed above.
+
 The proximity polling in `src/game/original-proximity.ts`, shared by the linked-bridge, sliding-stone, weighted-lift, gate, fan, checkpoint and passive-hinge adapters, adapts the behavior of `TT_Toolbox_RT/Behaviors/ScaleableProximity.cpp` from [doyaGu/CKBuildingBlocks](https://github.com/doyaGu/CKBuildingBlocks/tree/fca1963e39e64daa480918661732b1b0e45fe7b8), revision `fca1963e39e64daa480918661732b1b0e45fe7b8`, licensed under Apache-2.0. The upstream file credits Terratools/Virtools. The adaptation is written in TypeScript, uses Three.js vectors, implements the recovered range transitions and adaptive countdown, and samples script frames at presentation cadence in the native path (fixed physics ticks in the Rapier path). Fan attenuation in `src/game/original-fan.ts` also adapts `TT_Gravity_RT/Behaviors/ProximityVolumeControl.cpp` from that revision: local-frame squared distance and exponential gain, applied to browser audio. The upstream license is included in [public/licenses/CKBuildingBlocks-Apache-2.0.txt](public/licenses/CKBuildingBlocks-Apache-2.0.txt) and copied into the production output.
 
 The local NMO importer uses the separately installed LibCmo21 library; its revision and setup are documented in [original-import.md](docs/original-import.md). Original Ballance game assets are user-supplied, staged separately by the deploy command and have separate rights from these source references.

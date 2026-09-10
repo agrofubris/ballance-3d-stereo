@@ -1,5 +1,9 @@
 # Ballance 3D Stereo (browser port)
 
+Based on [fayazara/ballance](https://github.com/fayazara/ballance) by Fayaz Ara.
+Changes here: stereo 3D output, controller rebinding options, and portable
+Windows Setup/Launch with a vendored BMap converter.
+
 Twelve original Ballance courses in the browser, with menus, stereo 3D,
 and gamepad support. The 1:1 port is in progress; Level 1 is the most
 playable. See [limitations](docs/original-import.md).
