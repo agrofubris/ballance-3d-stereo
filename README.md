@@ -1,6 +1,6 @@
 # Ballance 3D Stereo (browser port)
 
-Based on [fayazara/ballance](https://github.com/fayazara/ballance) by Fayaz Ara.
+Based on [fayazara/ballance](https://github.com/fayazara/ballance) by Fayaz Ahmed.
 Changes here: stereo 3D output, controller rebinding options, and portable
 Windows Setup/Launch with a vendored BMap converter.
 
