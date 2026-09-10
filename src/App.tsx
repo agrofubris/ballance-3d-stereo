@@ -59,6 +59,7 @@ export default function App() {
   const [quality,setQuality]=useState(()=>read('ballance-original-resolution',2))
   const [stereo,setStereo]=useState<StereoSettings>(readStereo)
   const [gamepadSettings,setGamepadSettings]=useState<GamepadSettings>(readGamepad)
+  const [engineReady,setEngineReady]=useState(false)
   const [controllerInfo,setControllerInfo]=useState({connected:false,id:'',mapping:'',index:-1})
   const [gamepadBinding,setGamepadBinding]=useState<GamepadButtonAction|null>(null)
   const controllerBindingFrame=useRef(-1)
@@ -83,7 +84,7 @@ export default function App() {
         if(next.phase==='won'||next.phase==='lost')setPanel(current=>current??'score')
       },native)
       await game.initialize();if(cancelled)return
-      engine.current=game
+      engine.current=game;setEngineReady(true)
       const current=latest.current
       game.setControls(current.controls);game.setSettings({sound:true,quality:current.quality===2,sensitivity:1});game.setStereo(current.stereo);game.setGamepadSettings(current.gamepadSettings);game.audio.volume=current.volume
       game.state.phase='menu';game.emit();setBusy(false)
@@ -94,12 +95,12 @@ export default function App() {
         closeInspector=inspectOriginal(game)
       }
     })().catch(e=>{if(!cancelled){setError(String(e));setBusy(false)}})
-    return ()=>{cancelled=true;closeInspector?.();game?.destroy();engine.current=null}
+    return ()=>{cancelled=true;closeInspector?.();game?.destroy();engine.current=null;setEngineReady(false)}
   },[])
   useEffect(()=>{engine.current?.setControls(controls);save('ballance-original-controls',controls)},[controls])
   useEffect(()=>{const game=engine.current;if(game){game.audio.volume=volume;game.audio.sync()}save('ballance-original-volume',volume)},[volume])
   useEffect(()=>{const game=engine.current;if(game){const settings:Settings={sound:true,quality:quality===2,sensitivity:1};game.setSettings(settings)}save('ballance-original-resolution',quality)},[quality])
-  useEffect(()=>{engine.current?.setStereo(stereo);save('ballance-original-stereo',stereo)},[stereo])
+  useEffect(()=>{engine.current?.setStereo(stereo);save('ballance-original-stereo',stereo)},[stereo,engineReady])
   useEffect(()=>{engine.current?.setGamepadSettings(gamepadSettings);save('ballance-original-gamepad',gamepadSettings)},[gamepadSettings])
   useEffect(()=>{
     let timer=0
@@ -112,6 +113,7 @@ export default function App() {
   const navigate=(next:Panel)=>{sound();setPanel(next)}
   const play=async(index=state.level)=> {
     const game=engine.current;if(!game)return
+    game.setStereo(latest.current.stereo)
     sound('Menu_load');setPanel(null);setBusy(true);setInCourse(true)
     try{await game.load(index)}catch(e){setError(String(e))}finally{setBusy(false)}
   }
