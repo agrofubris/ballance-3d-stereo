@@ -37,7 +37,7 @@ export class OriginalCollectibleAssets {
     this.trail.customProgramCacheKey=()=> 'original-point-trail-fade-v1'
     this.oil = material(life, lifeMaterials, 'P_Extra_Life_Sphere').map!.clone()
     this.oil.needsUpdate = true
-    this.bubble = new THREE.MeshBasicMaterial({ map: this.oil, color: 0xd6b4e3, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false })
+    this.bubble = new THREE.MeshBasicMaterial({ map: this.oil, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })
     const sphere = life.objects.find(o => o.name === 'P_Extra_Life_Sphere')!
     this.lifeGeometry = originalGeometry(life.meshes.find(m => m.id === sphere.mesh)!, sphere.matrix)
     const shadow = life.objects.find(o => o.name === 'P_Extra_Life_Shadow')!
