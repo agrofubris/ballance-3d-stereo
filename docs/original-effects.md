@@ -23,9 +23,10 @@ The white/blue placeholder polyhedra have been removed from original mode.
 - **Extra life:** the original `P_Extra_Life_Sphere` mesh, `P_Extra_Life_Oil` texture, silver `ExtraBall` billboard, and `P_Extra_Life_Shadow` floor texture. The shell ripples through animated UV offsets, scales vertically between 1.2 and 0.8, and bobs between original Y offsets -0.4 and +1.2 over two seconds. The original script uses these endpoints; the web interpolation is
 reconstructed. The shell renders its converted oil texture additive at full opacity with a
 2x color gain standing in for the authored lit response (white diffuse under
-bright scene lights plus the teal specular): an unlit shell at face value
-underplayed the original's vivid rainbow aura in every mode. The small silver
-center remains circular while the shell changes shape.
+bright scene lights plus the teal specular). The oil map keeps its authored
+byte values (no sRGB decode): as legacy glow data it would otherwise decode
+into darkness. The small silver center remains circular while the shell
+changes shape.
 - **Point extra:** a silver center with six silver satellites at the saved `P_Extra_Point_Frame1`–`6` positions, plus the original `FloorGlow` footprint. Collection trails now use textured silver billboards, too. Idle satellites now orbit independently at the recovered 5 rad/s on the six TT Extra axes, with two-original-unit radius. Each leaves stationary red dots using the original ExtraParticle texture, source emission-rate input 90, 1,000 ms lifetime, size 0.5 to 0.2 original units and RGBA fading from 1 to 40/255. Each emitter retains at most 100 particles, rendered together in one points draw per pickup. Activation and pursuing motion now use the TT Extra state machine described below.
 - The original proximity values are 4.5 units for lives and 3 units for point activation, converted to world scale. Lives still grant one spare ball. Point extras grant 100 time points on activation and 20 per arriving satellite, matching the recovered graph. Normal gameplay gains no labels or panels.
 

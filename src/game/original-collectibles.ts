@@ -36,6 +36,9 @@ export class OriginalCollectibleAssets {
     }
     this.trail.customProgramCacheKey=()=> 'original-point-trail-fade-v1'
     this.oil = material(life, lifeMaterials, 'P_Extra_Life_Sphere').map!.clone()
+    // Legacy glow data, not albedo: keep the authored byte values instead of
+    // sRGB-decoding them into darkness.
+    this.oil.colorSpace = THREE.NoColorSpace
     this.oil.needsUpdate = true
     this.bubble = new THREE.MeshBasicMaterial({ map: this.oil, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })
     this.bubble.color.setRGB(2, 2, 2)
