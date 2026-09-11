@@ -23,6 +23,7 @@ export class OriginalSpawnEffect {
   active = false
   unveiled = false
   private sphere?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshPhongMaterial[]>
+  private body?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   private lightning?: THREE.MeshPhongMaterial
   private flash?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   private light = new THREE.PointLight(0x3a5bff, 0, 20 * SCALE, 2)
@@ -46,9 +47,17 @@ export class OriginalSpawnEffect {
         material.transparent = true
       }
       this.sphere = sphere
+      sphere.renderOrder = 2
       this.group.add(sphere)
+      const body = new THREE.Mesh(sphere.geometry, new THREE.MeshBasicMaterial({ color: 0x0a1a66, transparent: true, opacity: .45, depthWrite: false }))
+      body.scale.setScalar(.97)
+      body.frustumCulled = false
+      body.renderOrder = 1
+      this.body = body
+      sphere.add(body)
       const flash = new THREE.Mesh(sphere.geometry, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }))
       flash.frustumCulled = false
+      flash.renderOrder = 3
       flash.visible = false
       this.flash = flash
       this.group.add(flash)
@@ -88,6 +97,7 @@ export class OriginalSpawnEffect {
     this.group.position.copy(position)
     this.group.visible = true
     if (this.sphere) this.sphere.visible = true
+    if (this.body) this.body.material.opacity = .45
     if (this.lightning) this.lightning.opacity = 1
     if (this.flash) this.flash.visible = false
     if (this.smoke) this.smoke.visible = false
@@ -145,9 +155,11 @@ export class OriginalSpawnEffect {
       if (this.sphere?.visible) {
         const rays = Math.min(1, since / 200)
         if (this.lightning) this.lightning.opacity = 1 - rays
+        if (this.body) this.body.material.opacity = .45 * (1 - rays)
         if (rays >= 1) {
           this.sphere.visible = false
           if (this.lightning) this.lightning.opacity = 1
+          if (this.body) this.body.material.opacity = .45
         }
       }
       if (this.flash) {
@@ -187,6 +199,7 @@ export class OriginalSpawnEffect {
     if (this.lightning) this.lightning.opacity = 1
   }
   dispose() {
+    this.body?.material.dispose()
     this.sphere?.geometry.dispose()
     this.flash?.material.dispose()
     this.smoke?.geometry.dispose()
