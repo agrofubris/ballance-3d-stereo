@@ -28,12 +28,78 @@ const modeIndex: Record<StereoMode, number> = {
   'interlaced-reversed': 4,
 }
 
+// Pixel-unit policy. Three's WebGLRenderer.setViewport takes CSS/logical
+// units and scales by the pixel ratio internally, so this renderer never
+// calls setViewport with drawing-buffer dimensions: setRenderTarget selects
+// the full target/canvas viewport on its own. All sizes below are physical
+// framebuffer pixels unless the name says otherwise.
+export interface StereoTargetSizes {
+  eyeTargetWidth: number
+  eyeTargetHeight: number
+}
+
+/** Physical eye-target size for a mode, buffer size and eye render scale. */
+export function computeStereoTargetSizes(mode: StereoMode, drawingBufferWidth: number, drawingBufferHeight: number, eyeRenderScale: number): StereoTargetSizes {
+  const bufferWidth = Math.max(1, Math.floor(drawingBufferWidth))
+  const bufferHeight = Math.max(1, Math.floor(drawingBufferHeight))
+  const baseWidth = mode === 'sbs' || mode === 'crossview' ? Math.max(1, Math.floor(bufferWidth / 2)) : bufferWidth
+  const scale = Number.isFinite(eyeRenderScale) && eyeRenderScale > 0 ? Math.min(1, eyeRenderScale) : 1
+  return { eyeTargetWidth: Math.max(1, Math.floor(baseWidth * scale)), eyeTargetHeight: Math.max(1, Math.floor(bufferHeight * scale)) }
+}
+
+/** Canvas backing-store pixel ratio for a mode. Interlaced keeps full
+ * physical rows (1:1 compositor-row to display-row parity) while the eye
+ * buffers absorb adaptive scaling; other modes follow the render budget. */
+export function computeCanvasPixelRatio(mode: StereoMode, budgetRatio: number, budgetMaximum: number, devicePixelRatio: number): number {
+  if (mode !== 'interlaced' && mode !== 'interlaced-reversed') return budgetRatio
+  return Math.min(devicePixelRatio, Math.max(budgetMaximum, 1))
+}
+
+/** Eye-buffer scale relative to the canvas backing store. Always <= 1. */
+export function computeEyeRenderScale(canvasPixelRatio: number, budgetRatio: number): number {
+  if (!(canvasPixelRatio > 0)) return 1
+  return Math.min(1, budgetRatio / canvasPixelRatio)
+}
+
+// Parallel off-axis stereo. Both eyes keep the main camera orientation and
+// are displaced by half the separation along its local X axis; the
+// zero-parallax plane sits at the convergence distance via an asymmetric
+// frustum shift, never a camera rotation. With separation 0 the shift is 0
+// and each eye reproduces the main projection exactly.
+export function offAxisProjectionShift(separation: number, convergence: number, fovDegrees: number, aspect: number): number {
+  if (!(separation > 0) || !(convergence > 0) || !(aspect > 0)) return 0
+  const halfFovTan = Math.tan(THREE.MathUtils.degToRad(fovDegrees) / 2)
+  if (!(halfFovTan > 0)) return 0
+  return separation / (2 * convergence * halfFovTan * aspect)
+}
+
+/** Position an eye camera parallel to the main camera with its frustum
+ * shifted so the convergence plane stays centered. side -1 is the left eye. */
+export function updateStereoEyeCamera(main: THREE.PerspectiveCamera, eye: THREE.PerspectiveCamera, side: -1 | 1, separation: number, convergence: number, aspect: number) {
+  main.updateMatrixWorld()
+  eye.fov = main.fov
+  eye.aspect = aspect
+  eye.near = main.near
+  eye.far = main.far
+  eye.up.copy(main.up)
+  const rotation = new THREE.Quaternion().setFromRotationMatrix(main.matrixWorld)
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(rotation).normalize()
+  eye.position.setFromMatrixPosition(main.matrixWorld).addScaledVector(right, side * separation * 0.5)
+  eye.quaternion.copy(rotation)
+  eye.updateProjectionMatrix()
+  const shift = offAxisProjectionShift(separation, convergence, main.fov, aspect)
+  eye.projectionMatrix.elements[8]! += side < 0 ? shift : -shift
+  eye.projectionMatrixInverse.copy(eye.projectionMatrix).invert()
+  eye.updateMatrixWorld()
+}
+
 /**
  * Renders the game twice and composites the two views into one canvas.
  *
  * The normal (off) path remains a single renderer.render call. Stereo uses
- * toe-in cameras and a small fullscreen shader, keeping physics, scene
- * ownership, shadows and audio completely independent of the display mode.
+ * parallel off-axis eye cameras and a small fullscreen shader, keeping
+ * physics, scene ownership and audio completely independent of display mode.
+ * Gamma, color management and material blending are intentionally untouched.
  */
 export class StereoRenderer {
   private readonly renderer: THREE.WebGLRenderer
@@ -45,9 +111,16 @@ export class StereoRenderer {
   private readonly compositeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
   private readonly compositeMaterial: THREE.ShaderMaterial
   private readonly compositeQuad: THREE.Mesh
+  private readonly scratchBufferSize = new THREE.Vector2()
   private settings: StereoSettings = { ...DEFAULT_STEREO_SETTINGS }
-  private outputWidth = 1
-  private outputHeight = 1
+  private budgetRatio = 1
+  private budgetMaximum = 1
+  private devicePixelRatio = 1
+  private cachedMode: StereoMode | '' = ''
+  private cachedDrawingBufferWidth = 0
+  private cachedDrawingBufferHeight = 0
+  private cachedEyeTargetWidth = 0
+  private cachedEyeTargetHeight = 0
 
   constructor(renderer: THREE.WebGLRenderer) {
     this.renderer = renderer
@@ -93,6 +166,9 @@ export class StereoRenderer {
             }
           } else {
             // gl_FragCoord is bottom-up, matching WebGL texture coordinates.
+            // This addressing is only 1:1 with the display when the canvas
+            // backing store runs at full physical resolution; see the size
+            // policy in syncRenderSizes.
             bool useLeft = mod(floor(gl_FragCoord.y), 2.0) < 1.0;
             if (mode > 3.5) useLeft = !useLeft;
             if (useLeft) gl_FragColor = texture2D(leftTexture, vUv);
@@ -120,58 +196,71 @@ export class StereoRenderer {
       defaultEnabled: !!next.defaultEnabled,
     }
     this.compositeMaterial.uniforms.mode!.value = modeIndex[this.settings.mode]
-    if (this.outputWidth > 1 && this.outputHeight > 1) this.resize(this.outputWidth, this.outputHeight)
   }
 
   getSettings(): StereoSettings {
     return { ...this.settings }
   }
 
-  /** Resize render targets to the renderer's drawing-buffer dimensions. */
-  resize(width: number, height: number) {
-    this.outputWidth = Math.max(1, Math.floor(width))
-    this.outputHeight = Math.max(1, Math.floor(height))
-    const sideBySide = this.settings.mode === 'sbs' || this.settings.mode === 'crossview'
-    const eyeWidth = sideBySide ? Math.max(1, Math.floor(this.outputWidth / 2)) : this.outputWidth
-    this.leftTarget.setSize(eyeWidth, this.outputHeight)
-    this.rightTarget.setSize(eyeWidth, this.outputHeight)
+  /** Adaptive render-budget scales; the canvas/eye split happens in sync. */
+  setBudgetScale(budgetRatio: number, budgetMaximum: number, devicePixelRatio: number) {
+    if (Number.isFinite(budgetRatio) && budgetRatio > 0) this.budgetRatio = budgetRatio
+    if (Number.isFinite(budgetMaximum) && budgetMaximum > 0) this.budgetMaximum = budgetMaximum
+    if (Number.isFinite(devicePixelRatio) && devicePixelRatio > 0) this.devicePixelRatio = devicePixelRatio
+  }
+
+  /** Owns the canvas-pixel-ratio and eye-target invariant. Only reallocates
+   * backing stores when the computed dimensions actually change. */
+  private syncRenderSizes() {
+    const mode = this.settings.mode
+    const canvasPixelRatio = computeCanvasPixelRatio(mode, this.budgetRatio, this.budgetMaximum, this.devicePixelRatio)
+    if (Math.abs(this.renderer.getPixelRatio() - canvasPixelRatio) > 1e-6) this.renderer.setPixelRatio(canvasPixelRatio)
+    this.renderer.getDrawingBufferSize(this.scratchBufferSize)
+    const drawingBufferWidth = Math.max(1, Math.floor(this.scratchBufferSize.x))
+    const drawingBufferHeight = Math.max(1, Math.floor(this.scratchBufferSize.y))
+    const eyeRenderScale = mode === 'off' ? 1 : computeEyeRenderScale(canvasPixelRatio, this.budgetRatio)
+    const { eyeTargetWidth, eyeTargetHeight } = computeStereoTargetSizes(mode, drawingBufferWidth, drawingBufferHeight, eyeRenderScale)
+    if (mode !== this.cachedMode || drawingBufferWidth !== this.cachedDrawingBufferWidth || drawingBufferHeight !== this.cachedDrawingBufferHeight || eyeTargetWidth !== this.cachedEyeTargetWidth || eyeTargetHeight !== this.cachedEyeTargetHeight) {
+      if (mode !== 'off') {
+        this.leftTarget.setSize(eyeTargetWidth, eyeTargetHeight)
+        this.rightTarget.setSize(eyeTargetWidth, eyeTargetHeight)
+      }
+      this.cachedMode = mode
+      this.cachedDrawingBufferWidth = drawingBufferWidth
+      this.cachedDrawingBufferHeight = drawingBufferHeight
+      this.cachedEyeTargetWidth = eyeTargetWidth
+      this.cachedEyeTargetHeight = eyeTargetHeight
+    }
   }
 
   render(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
+    this.syncRenderSizes()
     if (this.settings.mode === 'off') {
+      this.renderer.shadowMap.autoUpdate = true
       this.renderer.setRenderTarget(null)
       this.renderer.setScissorTest(false)
-      this.renderer.setViewport(0, 0, this.outputWidth, this.outputHeight)
       this.renderer.render(scene, camera)
       return
     }
 
-    const sideBySide = this.settings.mode === 'sbs' || this.settings.mode === 'crossview'
-    const eyeWidth = sideBySide ? Math.max(1, Math.floor(this.outputWidth / 2)) : this.outputWidth
-    const eyeAspect = eyeWidth / Math.max(1, this.outputHeight)
-    camera.updateMatrixWorld()
-    const basePosition = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld)
-    const baseRotation = new THREE.Quaternion().setFromRotationMatrix(camera.matrixWorld)
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(baseRotation).normalize()
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(baseRotation).normalize()
-    const convergenceTarget = basePosition.clone().addScaledVector(forward, this.settings.convergence)
-    const halfSeparation = this.settings.separation * 0.5
-
-    this.copyEyeCamera(camera, this.leftCamera, basePosition.clone().addScaledVector(right, -halfSeparation), convergenceTarget, eyeAspect)
-    this.copyEyeCamera(camera, this.rightCamera, basePosition.clone().addScaledVector(right, halfSeparation), convergenceTarget, eyeAspect)
+    // Both eyes share one shadow-map update per displayed frame; the second
+    // eye reuses it. Shadow content depends only on lights and scene state,
+    // which do not change between the two eye renders of the same frame.
+    this.renderer.shadowMap.autoUpdate = false
+    this.renderer.shadowMap.needsUpdate = true
+    const eyeAspect = this.cachedEyeTargetWidth / Math.max(1, this.cachedEyeTargetHeight)
+    updateStereoEyeCamera(camera, this.leftCamera, -1, this.settings.separation, this.settings.convergence, eyeAspect)
+    updateStereoEyeCamera(camera, this.rightCamera, 1, this.settings.separation, this.settings.convergence, eyeAspect)
 
     this.renderer.setScissorTest(false)
     this.renderer.setRenderTarget(this.leftTarget)
-    this.renderer.setViewport(0, 0, eyeWidth, this.outputHeight)
     this.renderer.clear()
     this.renderer.render(scene, this.leftCamera)
     this.renderer.setRenderTarget(this.rightTarget)
-    this.renderer.setViewport(0, 0, eyeWidth, this.outputHeight)
     this.renderer.clear()
     this.renderer.render(scene, this.rightCamera)
 
     this.renderer.setRenderTarget(null)
-    this.renderer.setViewport(0, 0, this.outputWidth, this.outputHeight)
     this.renderer.render(this.compositeScene, this.compositeCamera)
   }
 
@@ -180,14 +269,5 @@ export class StereoRenderer {
     this.rightTarget.dispose()
     this.compositeQuad.geometry.dispose()
     this.compositeMaterial.dispose()
-  }
-
-  private copyEyeCamera(source: THREE.PerspectiveCamera, target: THREE.PerspectiveCamera, position: THREE.Vector3, lookAt: THREE.Vector3, aspect: number) {
-    target.copy(source)
-    target.position.copy(position)
-    target.up.copy(source.up)
-    target.aspect = aspect
-    target.lookAt(lookAt)
-    target.updateProjectionMatrix()
   }
 }

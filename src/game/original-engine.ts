@@ -661,7 +661,7 @@ export class OriginalEngine {
     }
     if(!this.loading&&this.state.phase==='playing') {
       const ratio=this.renderBudget.sample(elapsedMs)
-      if(Math.abs(this.renderer.getPixelRatio()-ratio)>.001)this.renderer.setPixelRatio(ratio)
+      this.stereo.setBudgetScale(ratio,this.renderBudget.maximum,devicePixelRatio)
     }
     const dt=elapsedMs>0?(this.native?originalScriptDeltaMs(elapsedMs)/1000:Math.min(elapsedMs/1000,.05)):0
     if (!this.loading && this.state.phase === 'playing'&&dt>0) {
@@ -794,7 +794,7 @@ export class OriginalEngine {
   }
   keyup = (event: KeyboardEvent) => { const key=originalEngineKey(event.code,this.controls);if(key)this.keys.delete(key) }
   blur = () => { this.keys.clear(); if (this.state.phase === 'playing') this.pause() }
-  resize = () => { const w = this.host.clientWidth, h = this.host.clientHeight; this.camera.aspect = w / Math.max(h, 1); this.camera.updateProjectionMatrix();this.renderer.setPixelRatio(this.renderBudget.configure(w,h,devicePixelRatio,this.settings.quality,this.coarsePointer)); this.renderer.setSize(w, h); const size = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.stereo.resize(size.x, size.y) }
+  resize = () => { const w = this.host.clientWidth, h = this.host.clientHeight; this.camera.aspect = w / Math.max(h, 1); this.camera.updateProjectionMatrix(); this.renderBudget.configure(w,h,devicePixelRatio,this.settings.quality,this.coarsePointer); this.stereo.setBudgetScale(this.renderBudget.ratio,this.renderBudget.maximum,devicePixelRatio); this.renderer.setSize(w, h) }
   clearLevel() {
     this.respawnSequence.reset();this.respawnFilter.style.display='none'
     this.spawnAge=undefined;this.spawnEffect?.end()

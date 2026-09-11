@@ -24,7 +24,7 @@ export function OriginalMenuBackdrop({stereo=DEFAULT_STEREO_SETTINGS}:{stereo?:S
     scene.add(new THREE.HemisphereLight(0xffffff,0x918462,2.2))
     const light=new THREE.DirectionalLight(0xffffff,1.4);light.position.set(-20,45,15);scene.add(light)
     let disposed=false,frame=0,sky:THREE.CubeTexture|undefined
-    const resize=()=>{const w=target.clientWidth,h=target.clientHeight;camera.aspect=w/Math.max(1,h);camera.updateProjectionMatrix();renderer.setSize(w,h);const size=renderer.getDrawingBufferSize(new THREE.Vector2());stereoRenderer.resize(size.x,size.y)}
+    const resize=()=>{const w=target.clientWidth,h=target.clientHeight;camera.aspect=w/Math.max(1,h);camera.updateProjectionMatrix();renderer.setSize(w,h);stereoRenderer.setBudgetScale(renderer.getPixelRatio(),renderer.getPixelRatio(),devicePixelRatio)}
     const observer=new ResizeObserver(resize);observer.observe(target);resize()
     void (async()=> {
       const document=await loadOriginal('menulevel'),materials=await resources.create(document)

@@ -6,6 +6,13 @@ any time; entries below are fork-only unless noted.
 
 ## [Unreleased]
 
+### Fixed
+- Stereo correctness pass: removed physical-pixel `setViewport` calls (they
+  double-scaled with the pixel ratio), eye targets now resync to the live
+  drawing-buffer size every frame, interlaced keeps full physical canvas rows
+  with adaptive scaling moved to the eye buffers, toe-in replaced by parallel
+  off-axis projection, and the shadow map updates once per stereo frame.
+
 ### Added
 - Spawn teleport: level start and death respawn now play the recovered
   `Ball_LightningSphere` script (spinning/cycling sphere, 1.5 s growth,
