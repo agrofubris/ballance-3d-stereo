@@ -11,6 +11,9 @@ any time; entries below are fork-only unless noted.
   `Ball_LightningSphere` script (spinning/cycling sphere, 1.5 s growth,
   blue point light, 2.5 s smoke burst and white flash unveiling the ball)
   with `Misc_Lightning` over the original 3 s `New Ball` forming delay.
+- Spawn rays: the lightning arcs were invisible (smooth shell) because the
+  effect loader used clamp addressing while the authored UVs span U 1-2,
+  V 1.25-2; `RepeatWrapping` restores them.
 
 ### Fixed
 - Checkpoint handoff: the next trigger now waits the recovered two script

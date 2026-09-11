@@ -4,8 +4,11 @@ import type { OriginalDocument } from './original-data.ts'
 
 // Balls.nmo Ball_LightningSphere 437: Show sphere, spin it at 2 PI/s while
 // cycling textures 1-2-3, grow 0-1 over 1500 ms, ramp its point light blue
-// over 2500 ms, then a 60-particle smoke burst with a white flash. Gameplay
-// New Ball physicalizes the player at 3000 ms, which ends the hold.
+// over 2500 ms, then a 60-particle smoke burst with a white flash while the
+// lightning keeps running underneath. Rotate ends at 3000 ms and hides the
+// sphere; Gameplay New Ball physicalizes the player at the same 3000 ms.
+// Material 185 blends ONE,ONE (Virtools/D3D9) with black diffuse, white
+// emissive, no Z-write, front faces.
 export const SPAWN_SCALE_MS = 1500
 export const SPAWN_FLASH_MS = 2500
 export const SPAWN_DURATION = 3
@@ -43,7 +46,7 @@ export class OriginalSpawnEffect {
       this.sphere = sphere
       this.group.add(sphere)
       const packMap = sphere.material.find(m => m.name === 'Ball_LightningSphere')?.map ?? null
-      const arcs = new THREE.Mesh(sphere.geometry, new THREE.MeshBasicMaterial({ color: 0xffffff, map: packMap, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }))
+      const arcs = new THREE.Mesh(sphere.geometry, new THREE.MeshBasicMaterial({ color: 0xffffff, map: packMap, transparent: true, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor, depthWrite: false, side: THREE.FrontSide }))
       arcs.frustumCulled = false
       arcs.renderOrder = 2
       arcs.visible = packMap !== null
@@ -72,6 +75,11 @@ export class OriginalSpawnEffect {
       try {
         const texture = await loader.loadAsync(file)
         texture.colorSpace = THREE.SRGBColorSpace
+        texture.wrapS = THREE.RepeatWrapping
+        texture.wrapT = THREE.RepeatWrapping
+        texture.minFilter = THREE.LinearFilter
+        texture.magFilter = THREE.LinearFilter
+        texture.generateMipmaps = false
         return texture
       } catch {
         return undefined
@@ -125,6 +133,9 @@ export class OriginalSpawnEffect {
     const texture = new THREE.CanvasTexture(canvas)
     texture.colorSpace = THREE.SRGBColorSpace
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.minFilter = THREE.LinearFilter
+    texture.magFilter = THREE.LinearFilter
+    texture.generateMipmaps = false
     return texture
   }
   begin(position: THREE.Vector3) {
@@ -194,16 +205,7 @@ export class OriginalSpawnEffect {
       const since = ageMs - SPAWN_FLASH_MS
       const bloom = Math.min(1, since / 150)
       const fade = Math.min(1, since / 450)
-      if (this.arcs?.visible) {
-        const rays = Math.min(1, since / 200)
-        this.arcs.material.opacity = 1 - rays
-        if (this.body) this.body.material.opacity = .45 * (1 - rays)
-        if (rays >= 1) {
-          this.arcs.visible = false
-          this.arcs.material.opacity = 1
-          if (this.body) this.body.material.opacity = .45
-        }
-      }
+      if (this.body) this.body.material.opacity = .45 * (1 - fade)
       if (this.flash) {
         this.flash.scale.setScalar(1 + (1 - (1 - bloom) ** 3) * 2)
         this.flash.material.opacity = 1 - fade

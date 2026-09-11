@@ -40,14 +40,16 @@ def main():
     def log(message):
         if message: print(message.decode('utf-8', 'replace'))
     assert init(), 'BMap initialization failed'
-    files = [game / '3D_Entities' / 'Level' / f'Level_{args.level:02d}.NMO'] if args.level else sorted((game / '3D_Entities' / 'Level').glob('*.NMO')) + [game / '3D_Entities' / 'Balls.nmo']
-    if args.entities: files = sorted((game / '3D_Entities' / 'PH').glob('*.nmo'))
-    if args.transformer: files = [game / '3D_Entities' / 'AnimTrafo.nmo']
-    if args.menu: files = [game / '3D_Entities' / 'Menu.nmo', game / '3D_Entities' / 'MenuLevel.nmo']
+    entities = game / '3D Entities'
+    if not entities.is_dir(): entities = game / '3D_Entities'
+    files = [entities / 'Level' / f'Level_{args.level:02d}.NMO'] if args.level else sorted((entities / 'Level').glob('*.NMO')) + [entities / 'Balls.nmo']
+    if args.entities: files = sorted((entities / 'PH').glob('*.nmo'))
+    if args.transformer: files = [entities / 'AnimTrafo.nmo']
+    if args.menu: files = [entities / 'Menu.nmo', entities / 'MenuLevel.nmo']
     for file in files:
         handle = P()
         encodings = (C.c_char_p * 2)(b'windows-1252', b'utf-8')
-        if not loader(str(file).encode(), str(temp.resolve()).encode(), str((game / 'Textures').resolve()).encode(), log, 2, encodings, C.byref(handle)):
+        if not loader(file.as_posix().encode(), temp.resolve().as_posix().encode(), (game / 'Textures').resolve().as_posix().encode(), log, 2, encodings, C.byref(handle)):
             raise RuntimeError(f'Cannot load {file}')
         def get(name, object_id=None, kind=U, index=None):
             types, values = [P], [handle]
@@ -74,7 +76,7 @@ def main():
             filename = (Path(original).stem or f'texture-{tid}') + '.png'
             dest = output / 'textures' / filename
             save = function('BMTexture_SaveImage', [P, U, C.c_char_p])
-            if not save(handle, tid, str(dest.resolve()).encode()): raise RuntimeError(f'Cannot export texture {original}')
+            if not save(handle, tid, dest.resolve().as_posix().encode()): raise RuntimeError(f'Cannot export texture {original}')
             document['textures'].append({'id': tid, 'name': name(tid), 'source': original, 'file': f'textures/{filename}'})
         for mid in ids('Material'):
             entry = {'id': mid, 'name': name(mid), 'texture': value('BMMaterial_GetTexture', mid)}
@@ -84,6 +86,11 @@ def main():
                 entry[field] = value('BMMaterial_Get' + field, mid, C.c_bool)
             entry['sourceBlend'] = value('BMMaterial_GetSourceBlend', mid)
             entry['destBlend'] = value('BMMaterial_GetDestBlend', mid)
+            entry['textureBlendMode'] = value('BMMaterial_GetTextureBlendMode', mid)
+            entry['textureMinMode'] = value('BMMaterial_GetTextureMinMode', mid)
+            entry['textureMagMode'] = value('BMMaterial_GetTextureMagMode', mid)
+            entry['textureAddressMode'] = value('BMMaterial_GetTextureAddressMode', mid)
+            entry['textureBorderColor'] = list(get('BMMaterial_GetTextureBorderColor', mid, Color).values)
             document['materials'].append(entry)
         for mid in ids('Mesh'):
             vc, fc = value('BMMesh_GetVertexCount', mid), value('BMMesh_GetFaceCount', mid)
