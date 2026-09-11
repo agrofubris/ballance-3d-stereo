@@ -78,6 +78,7 @@ export class OriginalSpawnEffect {
       }
     }
     this.textures = (await Promise.all(SPHERE_TEXTURES.map(safe))).filter((t): t is THREE.Texture => t !== undefined)
+    if (!this.textures.length) this.textures = [this.makeArcsTexture(), this.makeArcsTexture(), this.makeArcsTexture()]
     if (this.arcs && this.textures.length) {
       this.arcs.material.map = this.textures[0]!
       this.arcs.material.needsUpdate = true
@@ -92,6 +93,39 @@ export class OriginalSpawnEffect {
     this.smoke.frustumCulled = false
     this.smoke.visible = false
     this.group.add(this.smoke)
+  }
+  private makeArcsTexture() {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 256
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, 256, 256)
+    const bolt = (width: number, glow: string) => {
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = width
+      ctx.shadowColor = glow
+      ctx.shadowBlur = 10
+      ctx.beginPath()
+      let x = Math.random() * 256, y = -10
+      ctx.moveTo(x, y)
+      for (let i = 0; i < 9; i++) {
+        x += (Math.random() - .5) * 44
+        y += 256 / 8
+        ctx.lineTo(x, y)
+        if (Math.random() < .3) {
+          ctx.moveTo(x, y)
+          ctx.lineTo(x + (Math.random() - .5) * 60, y + 20)
+          ctx.moveTo(x, y)
+        }
+      }
+      ctx.stroke()
+    }
+    for (let i = 0; i < 14; i++) bolt(2, '#4488ff')
+    for (let i = 0; i < 6; i++) bolt(1, '#99ccff')
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    return texture
   }
   begin(position: THREE.Vector3) {
     this.age = 0
