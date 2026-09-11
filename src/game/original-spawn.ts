@@ -59,13 +59,18 @@ export class OriginalSpawnEffect {
   }
   async load() {
     const loader = new THREE.TextureLoader()
-    this.textures = await Promise.all(SPHERE_TEXTURES.map(async file => {
-      const texture = await loader.loadAsync(file)
-      texture.colorSpace = THREE.SRGBColorSpace
-      return texture
-    }))
-    const smoke = await loader.loadAsync('/original/textures/Particle_Smoke.png')
-    smoke.colorSpace = THREE.SRGBColorSpace
+    const safe = async (file: string): Promise<THREE.Texture | undefined> => {
+      try {
+        const texture = await loader.loadAsync(file)
+        texture.colorSpace = THREE.SRGBColorSpace
+        return texture
+      } catch {
+        return undefined
+      }
+    }
+    this.textures = (await Promise.all(SPHERE_TEXTURES.map(safe))).filter((t): t is THREE.Texture => t !== undefined)
+    const smoke = await safe('/original/textures/Particle_Smoke.png')
+    if (!smoke) return
     const positions = new Float32Array(SMOKE_COUNT * 3)
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage))
@@ -83,6 +88,7 @@ export class OriginalSpawnEffect {
     this.group.position.copy(position)
     this.group.visible = true
     if (this.sphere) this.sphere.visible = true
+    if (this.lightning) this.lightning.opacity = 1
     if (this.flash) this.flash.visible = false
     if (this.smoke) this.smoke.visible = false
     this.light.visible = true
@@ -105,12 +111,11 @@ export class OriginalSpawnEffect {
     }
     if (!this.flashed) {
       const blue = Math.min(1, ageMs / SPAWN_FLASH_MS)
-      this.light.intensity = 25 * blue
+      this.light.intensity = 5 * blue
       this.light.color.setHex(0x3a5bff).lerp(new THREE.Color(0xffffff), blue * blue)
       if (ageMs >= SPAWN_FLASH_MS) {
         this.flashed = true
         this.unveiled = true
-        if (this.sphere) this.sphere.visible = false
         if (this.flash) {
           this.flash.visible = true
           this.flash.scale.setScalar(1)
@@ -130,13 +135,21 @@ export class OriginalSpawnEffect {
           this.smoke.material.opacity = .9
           this.smoke.material.size = .5
         }
-        this.light.intensity = 60
+        this.light.intensity = 14
         this.light.color.setHex(0xffffff)
       }
     } else {
       const since = ageMs - SPAWN_FLASH_MS
       const bloom = Math.min(1, since / 150)
       const fade = Math.min(1, since / 450)
+      if (this.sphere?.visible) {
+        const rays = Math.min(1, since / 200)
+        if (this.lightning) this.lightning.opacity = 1 - rays
+        if (rays >= 1) {
+          this.sphere.visible = false
+          if (this.lightning) this.lightning.opacity = 1
+        }
+      }
       if (this.flash) {
         this.flash.scale.setScalar(1 + (1 - (1 - bloom) ** 3) * 2)
         this.flash.material.opacity = 1 - fade
@@ -156,7 +169,7 @@ export class OriginalSpawnEffect {
         this.smoke.material.size = .5 + bloom * 2
         if (fade >= 1) this.smoke.visible = false
       }
-      this.light.intensity = 60 * (1 - fade)
+      this.light.intensity = 14 * (1 - fade)
       if (fade >= 1) this.light.visible = false
     }
     if (this.age >= SPAWN_DURATION) this.end()
