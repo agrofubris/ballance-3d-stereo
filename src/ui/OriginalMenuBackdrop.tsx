@@ -17,6 +17,7 @@ export function OriginalMenuBackdrop({stereo=DEFAULT_STEREO_SETTINGS}:{stereo?:S
     const stereoRenderer=new StereoRenderer(renderer);compositor.current=stereoRenderer
     stereoRenderer.setSettings(stereoAtMount.current)
     renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setPixelRatio(Math.min(devicePixelRatio,2))
+    const menuPixelRatio=renderer.getPixelRatio()
     target.append(renderer.domElement)
     const eye=data.menuCamera.slice(9),look=data.menuTarget.slice(12,15)
     camera.position.set(eye[0]!*.25,eye[1]!*.25,-eye[2]!*.25)
@@ -24,7 +25,7 @@ export function OriginalMenuBackdrop({stereo=DEFAULT_STEREO_SETTINGS}:{stereo?:S
     scene.add(new THREE.HemisphereLight(0xffffff,0x918462,2.2))
     const light=new THREE.DirectionalLight(0xffffff,1.4);light.position.set(-20,45,15);scene.add(light)
     let disposed=false,frame=0,sky:THREE.CubeTexture|undefined
-    const resize=()=>{const w=target.clientWidth,h=target.clientHeight;camera.aspect=w/Math.max(1,h);camera.updateProjectionMatrix();renderer.setSize(w,h);stereoRenderer.setBudgetScale(renderer.getPixelRatio(),renderer.getPixelRatio(),devicePixelRatio)}
+    const resize=()=>{const w=target.clientWidth,h=target.clientHeight;camera.aspect=w/Math.max(1,h);camera.updateProjectionMatrix();renderer.setSize(w,h);stereoRenderer.setBudgetScale(menuPixelRatio,menuPixelRatio,devicePixelRatio)}
     const observer=new ResizeObserver(resize);observer.observe(target);resize()
     void (async()=> {
       const document=await loadOriginal('menulevel'),materials=await resources.create(document)
