@@ -8,8 +8,9 @@ any time; entries below are fork-only unless noted.
 
 ### Added
 - Spawn teleport: level start and death respawn now play the recovered
-  `Ball_LightningSphere` effect with `Misc_Lightning` over the original
-  3 s `New Ball` forming delay before the ball physicalizes.
+  `Ball_LightningSphere` script (spinning/cycling sphere, 1.5 s growth,
+  blue point light, 2.5 s smoke burst and white flash unveiling the ball)
+  with `Misc_Lightning` over the original 3 s `New Ball` forming delay.
 
 ### Fixed
 - Checkpoint handoff: the next trigger now waits the recovered two script

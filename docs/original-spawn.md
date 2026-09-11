@@ -1,20 +1,24 @@
 # Spawn teleport
 
-`Gameplay.nmo` builds every new ball in `New Ball 2921`: after positioning it
-activates the `Ball_LightningSphere` script, waits the recovered 3000 ms
-`Delayer`, then physicalizes the player. The sphere mesh, its additive
-`Ball_LightningSphere` material and the three `Ball_LightningSphere`
-textures all come from `Balls.nmo`; the sting is `Sounds/Misc_Lightning.wav`.
-See `scripts/prepare-original.py` (audio list) and
-`src/game/original-spawn.ts`.
+`Balls.nmo` `Ball_LightningSphere 437` runs every materialization, triggered
+by `Gameplay.nmo` `New Ball 2921` after positioning: `Show` the lightning
+sphere while `Rotate Lighting Sphere` spins it at 2 PI/s around Y and cycles
+textures 1-2-3, `Scale Lighting Sphere` grows 0-1 over 1500 ms, `Light Anim`
+ramps `Ball_Lightning_PointLight` blue over 2500 ms then white, `Wave Player`
+plays `Misc_Lightning Sound`, and a 2500 ms `Delayer` fires the 60-particle
+`BallParticle_Frame` smoke burst. `Rotate` ends at 3000 ms and hides the
+sphere; `New Ball` physicalizes the player at the same 3000 ms.
+See `src/game/original-spawn.ts` and `scripts/prepare-original.py`.
 
-The port renders that sequence in both places a ball appears:
+The port plays that sequence in both places a ball appears:
 
-- Level start holds the reset ball hidden for the recovered 3 s while the
-  lightning sphere flickers around the reset point, then enables physics.
+- Level start holds the reset ball hidden while the sphere grows and crackles,
+  then the smoke burst and white flash unveil the ball at 2.5 s; physics
+  enables at 3 s.
 - Death respawn reuses the same effect for the `forming` stage between the
   existing `position-ball` and `physicalize-ball` events, with the same sound.
 
-Exact Virtools curve data for the sphere (scale envelope, texture order) was
-not recovered, so the flicker rate, growth ramp and final half-second fade
-are reconstructions. Duration, mesh, material blend and sound are original.
+Ease curves inside the `Bezier Progression` blocks and the exact light
+intensities were not decoded, so growth easing, flicker rate, flash envelope
+and light gain are reconstructions. Durations, mesh, texture order, particle
+count, blend, sound and the unveil order are original.

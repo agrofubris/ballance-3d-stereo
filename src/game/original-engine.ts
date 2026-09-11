@@ -489,6 +489,7 @@ export class OriginalEngine {
     }
     this.elapsed+=dt
     if(this.spawnEffect?.active)this.spawnEffect.update(dt)
+    if(this.spawnEffect?.unveiled)this.ball.visible=true
     if(this.native) {
       this.native.input(new Set(),this.yaw)
       for(const sound of this.native.step(dt*1000))this.audio.effect(sound)
@@ -498,6 +499,7 @@ export class OriginalEngine {
   private stepSpawn(dt:number) {
     this.spawnAge=(this.spawnAge??0)+dt
     this.spawnEffect?.update(dt)
+    if(this.spawnEffect?.unveiled)this.ball.visible=true
     this.elapsed+=dt
     if(this.native) {
       this.native.input(new Set(),this.yaw)
