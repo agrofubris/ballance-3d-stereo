@@ -24,7 +24,7 @@ export class OriginalSpawnEffect {
   unveiled = false
   private sphere?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshPhongMaterial[]>
   private body?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
-  private lightning?: THREE.MeshPhongMaterial
+  private arcs?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   private flash?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   private light = new THREE.PointLight(0x3a5bff, 0, 20 * SCALE, 2)
   private textures: THREE.Texture[] = []
@@ -39,22 +39,22 @@ export class OriginalSpawnEffect {
       const fallback = materials.values().next().value!
       const sphere = new THREE.Mesh(originalGeometry(source, object!.matrix, true), source.materials.map(id => materials.get(id) || fallback))
       sphere.frustumCulled = false
-      for (const material of sphere.material) {
-        if (material.name !== 'Ball_LightningSphere') continue
-        this.lightning = material
-        material.blending = THREE.AdditiveBlending
-        material.depthWrite = false
-        material.transparent = true
-      }
+      sphere.visible = false
       this.sphere = sphere
-      sphere.renderOrder = 2
       this.group.add(sphere)
+      const packMap = sphere.material.find(m => m.name === 'Ball_LightningSphere')?.map ?? null
+      const arcs = new THREE.Mesh(sphere.geometry, new THREE.MeshBasicMaterial({ color: 0xffffff, map: packMap, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }))
+      arcs.frustumCulled = false
+      arcs.renderOrder = 2
+      arcs.visible = packMap !== null
+      this.arcs = arcs
+      this.group.add(arcs)
       const body = new THREE.Mesh(sphere.geometry, new THREE.MeshBasicMaterial({ color: 0x0a1a66, transparent: true, opacity: .45, depthWrite: false }))
       body.scale.setScalar(.97)
       body.frustumCulled = false
       body.renderOrder = 1
       this.body = body
-      sphere.add(body)
+      this.group.add(body)
       const flash = new THREE.Mesh(sphere.geometry, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }))
       flash.frustumCulled = false
       flash.renderOrder = 3
@@ -78,6 +78,11 @@ export class OriginalSpawnEffect {
       }
     }
     this.textures = (await Promise.all(SPHERE_TEXTURES.map(safe))).filter((t): t is THREE.Texture => t !== undefined)
+    if (this.arcs && this.textures.length) {
+      this.arcs.material.map = this.textures[0]!
+      this.arcs.material.needsUpdate = true
+      this.arcs.visible = true
+    }
     const smoke = await safe('/original/textures/Particle_Smoke.png')
     if (!smoke) return
     const positions = new Float32Array(SMOKE_COUNT * 3)
@@ -96,9 +101,11 @@ export class OriginalSpawnEffect {
     this.smokeAge = 0
     this.group.position.copy(position)
     this.group.visible = true
-    if (this.sphere) this.sphere.visible = true
+    if (this.arcs) {
+      this.arcs.visible = this.arcs.material.map !== null
+      this.arcs.material.opacity = 1
+    }
     if (this.body) this.body.material.opacity = .45
-    if (this.lightning) this.lightning.opacity = 1
     if (this.flash) this.flash.visible = false
     if (this.smoke) this.smoke.visible = false
     this.light.visible = true
@@ -108,15 +115,16 @@ export class OriginalSpawnEffect {
     if (!this.active) return
     this.age += dt
     const ageMs = this.age * 1000
-    if (this.sphere?.visible) {
+    if (this.sphere) {
       const growth = Math.min(1, ageMs / SPAWN_SCALE_MS)
       const flicker = 1 + .08 * Math.sin(this.age * 40)
       this.sphere.scale.setScalar(Math.max(.001, (1 - (1 - growth) ** 3) * flicker))
       this.sphere.rotation.y += dt * Math.PI * 2
-      if (this.textures.length && this.lightning) {
-        const texture = this.textures[Math.floor(this.age / .08) % this.textures.length]!
-        this.lightning.map = texture
-        this.lightning.emissiveMap = texture
+      if (this.body) this.body.scale.copy(this.sphere.scale).multiplyScalar(.97)
+      if (this.arcs?.visible) {
+        this.arcs.scale.copy(this.sphere.scale)
+        this.arcs.rotation.y = this.sphere.rotation.y
+        if (this.textures.length) this.arcs.material.map = this.textures[Math.floor(this.age / .08) % this.textures.length]!
       }
     }
     if (!this.flashed) {
@@ -152,13 +160,13 @@ export class OriginalSpawnEffect {
       const since = ageMs - SPAWN_FLASH_MS
       const bloom = Math.min(1, since / 150)
       const fade = Math.min(1, since / 450)
-      if (this.sphere?.visible) {
+      if (this.arcs?.visible) {
         const rays = Math.min(1, since / 200)
-        if (this.lightning) this.lightning.opacity = 1 - rays
+        this.arcs.material.opacity = 1 - rays
         if (this.body) this.body.material.opacity = .45 * (1 - rays)
         if (rays >= 1) {
-          this.sphere.visible = false
-          if (this.lightning) this.lightning.opacity = 1
+          this.arcs.visible = false
+          this.arcs.material.opacity = 1
           if (this.body) this.body.material.opacity = .45
         }
       }
@@ -192,13 +200,15 @@ export class OriginalSpawnEffect {
     this.group.visible = false
     this.group.scale.setScalar(1)
     if (this.sphere) { this.sphere.scale.setScalar(1); this.sphere.rotation.set(0, 0, 0) }
+    if (this.arcs) { this.arcs.visible = this.arcs.material.map !== null; this.arcs.material.opacity = 1; this.arcs.scale.setScalar(1); this.arcs.rotation.set(0, 0, 0) }
+    if (this.body) this.body.scale.setScalar(.97)
     if (this.flash) this.flash.visible = false
     if (this.smoke) this.smoke.visible = false
     this.light.visible = false
     this.light.intensity = 0
-    if (this.lightning) this.lightning.opacity = 1
   }
   dispose() {
+    this.arcs?.material.dispose()
     this.body?.material.dispose()
     this.sphere?.geometry.dispose()
     this.flash?.material.dispose()
