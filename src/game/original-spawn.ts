@@ -11,7 +11,11 @@ export const SPAWN_FLASH_MS = 2500
 export const SPAWN_DURATION = 3
 const SPHERE_TEXTURES = ['Ball_LightningSphere1', 'Ball_LightningSphere2', 'Ball_LightningSphere3'].map(name => `/original/textures/${name}.png`)
 const SMOKE_COUNT = 60
-const SMOKE_LIFETIME = 1
+const SMOKE_CLUSTERS = 7
+const smokeClusterDir = (cluster: number) => {
+  const t = (cluster + .5) / SMOKE_CLUSTERS, phi = Math.acos(1 - 2 * t), theta = Math.PI * (1 + Math.sqrt(5)) * cluster
+  return new THREE.Vector3(Math.sin(phi) * Math.cos(theta), Math.cos(phi), Math.sin(phi) * Math.sin(theta))
+}
 
 export class OriginalSpawnEffect {
   group = new THREE.Group()
@@ -115,33 +119,42 @@ export class OriginalSpawnEffect {
         if (this.smoke) {
           const positions = this.smoke.geometry.getAttribute('position')
           for (let i = 0; i < SMOKE_COUNT; i++) {
-            const theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1), speed = 1 + Math.random() * 2
-            this.smokeVelocities.set([Math.sin(phi) * Math.cos(theta) * speed, Math.abs(Math.cos(phi)) * speed, Math.sin(phi) * Math.sin(theta) * speed], i * 3)
+            const cluster = i % SMOKE_CLUSTERS
+            const dir = smokeClusterDir(cluster)
+            const speed = 2 + (cluster % 3) * .8 + Math.random() * .9
+            this.smokeVelocities.set([dir.x * speed + (Math.random() - .5) * .7, Math.abs(dir.y) * speed + 1.2 + Math.random() * .5, dir.z * speed + (Math.random() - .5) * .7], i * 3)
             positions.setXYZ(i, 0, 0, 0)
           }
           positions.needsUpdate = true
           this.smoke.visible = true
-          this.smoke.material.opacity = .8
+          this.smoke.material.opacity = .9
           this.smoke.material.size = .5
         }
         this.light.intensity = 60
         this.light.color.setHex(0xffffff)
       }
     } else {
-      const fade = Math.min(1, (ageMs - SPAWN_FLASH_MS) / 600)
+      const since = ageMs - SPAWN_FLASH_MS
+      const bloom = Math.min(1, since / 150)
+      const fade = Math.min(1, since / 450)
       if (this.flash) {
-        this.flash.scale.setScalar(1 + fade * 1.5)
+        this.flash.scale.setScalar(1 + (1 - (1 - bloom) ** 3) * 2)
         this.flash.material.opacity = 1 - fade
         if (fade >= 1) this.flash.visible = false
       }
       if (this.smoke?.visible) {
         this.smokeAge += dt
+        const drag = (1 - Math.exp(-3 * this.smokeAge)) / 3
         const positions = this.smoke.geometry.getAttribute('position')
-        for (let i = 0; i < SMOKE_COUNT; i++) positions.setXYZ(i, this.smokeVelocities[i * 3]! * this.smokeAge, this.smokeVelocities[i * 3 + 1]! * this.smokeAge, this.smokeVelocities[i * 3 + 2]! * this.smokeAge)
+        for (let i = 0; i < SMOKE_COUNT; i++) {
+          const cluster = i % SMOKE_CLUSTERS
+          const wobble = Math.sin(this.smokeAge * 6 + cluster) * .15 * this.smokeAge
+          positions.setXYZ(i, this.smokeVelocities[i * 3]! * drag + wobble, this.smokeVelocities[i * 3 + 1]! * drag + this.smokeAge * .4, this.smokeVelocities[i * 3 + 2]! * drag - wobble)
+        }
         positions.needsUpdate = true
-        this.smoke.material.opacity = .8 * (1 - this.smokeAge / SMOKE_LIFETIME)
-        this.smoke.material.size = .5 + this.smokeAge * 1.5
-        if (this.smokeAge >= SMOKE_LIFETIME) this.smoke.visible = false
+        this.smoke.material.opacity = .9 * (1 - fade)
+        this.smoke.material.size = .5 + bloom * 2
+        if (fade >= 1) this.smoke.visible = false
       }
       this.light.intensity = 60 * (1 - fade)
       if (fade >= 1) this.light.visible = false

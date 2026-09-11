@@ -18,7 +18,8 @@ The port plays that sequence in both places a ball appears:
 - Death respawn reuses the same effect for the `forming` stage between the
   existing `position-ball` and `physicalize-ball` events, with the same sound.
 
-Ease curves inside the `Bezier Progression` blocks and the exact light
-intensities were not decoded, so growth easing, flicker rate, flash envelope
-and light gain are reconstructions. Durations, mesh, texture order, particle
-count, blend, sound and the unveil order are original.
+Ease curves inside the `Bezier Progression` blocks, per-particle smoke
+velocities and the exact light intensities were not decoded, so growth
+easing, flicker rate, flash envelope, cluster layout and light gain are
+reconstructions. Durations, mesh, texture order, particle count, blend,
+sound and the unveil order are original.
