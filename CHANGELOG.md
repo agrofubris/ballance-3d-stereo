@@ -9,9 +9,10 @@ any time; entries below are fork-only unless noted.
 ### Fixed
 - Stereo correctness pass: removed physical-pixel `setViewport` calls (they
   double-scaled with the pixel ratio), eye targets now resync to the live
-  drawing-buffer size every frame, interlaced keeps full physical canvas rows
-  with adaptive scaling moved to the eye buffers, toe-in replaced by parallel
-  off-axis projection, and the shadow map updates once per stereo frame.
+  drawing-buffer size every frame, interlaced canvas runs at the exact live
+  device pixel ratio with adaptive scaling moved to the eye buffers, toe-in
+  replaced by parallel off-axis projection, and the shadow map updates once
+  per stereo frame with caller state restored.
 
 ### Added
 - Spawn teleport: level start and death respawn now play the recovered

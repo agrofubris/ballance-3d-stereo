@@ -47,12 +47,16 @@ export function computeStereoTargetSizes(mode: StereoMode, drawingBufferWidth: n
   return { eyeTargetWidth: Math.max(1, Math.floor(baseWidth * scale)), eyeTargetHeight: Math.max(1, Math.floor(bufferHeight * scale)) }
 }
 
-/** Canvas backing-store pixel ratio for a mode. Interlaced keeps full
- * physical rows (1:1 compositor-row to display-row parity) while the eye
- * buffers absorb adaptive scaling; other modes follow the render budget. */
-export function computeCanvasPixelRatio(mode: StereoMode, budgetRatio: number, budgetMaximum: number, devicePixelRatio: number): number {
-  if (mode !== 'interlaced' && mode !== 'interlaced-reversed') return budgetRatio
-  return Math.min(devicePixelRatio, Math.max(budgetMaximum, 1))
+/** Canvas backing-store pixel ratio for a mode. Either interlaced mode must
+ * match the live device pixel ratio exactly: any browser resampling between
+ * backing-store rows and physical display rows destroys the odd/even-row
+ * parity passive line interlacing requires. All adaptive reduction goes to
+ * the eye buffers instead. Other modes follow the render budget. */
+export function computeCanvasPixelRatio(mode: StereoMode, budgetRatio: number, _budgetMaximum: number, devicePixelRatio: number): number {
+  if (mode === 'interlaced' || mode === 'interlaced-reversed') {
+    return Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1
+  }
+  return budgetRatio
 }
 
 /** Eye-buffer scale relative to the canvas backing store. Always <= 1. */
@@ -65,7 +69,8 @@ export function computeEyeRenderScale(canvasPixelRatio: number, budgetRatio: num
 // are displaced by half the separation along its local X axis; the
 // zero-parallax plane sits at the convergence distance via an asymmetric
 // frustum shift, never a camera rotation. With separation 0 the shift is 0
-// and each eye reproduces the main projection exactly.
+// and each eye reproduces the main projection exactly at full eye aspect
+// (interlaced); SBS/crossview intentionally use a half-width eye aspect.
 export function offAxisProjectionShift(separation: number, convergence: number, fovDegrees: number, aspect: number): number {
   if (!(separation > 0) || !(convergence > 0) || !(aspect > 0)) return 0
   const halfFovTan = Math.tan(THREE.MathUtils.degToRad(fovDegrees) / 2)
@@ -246,19 +251,26 @@ export class StereoRenderer {
     // Both eyes share one shadow-map update per displayed frame; the second
     // eye reuses it. Shadow content depends only on lights and scene state,
     // which do not change between the two eye renders of the same frame.
+    // The caller's autoUpdate state is restored afterwards, so the composite
+    // (which holds no lights) never triggers a second update.
+    const previousShadowAutoUpdate = this.renderer.shadowMap.autoUpdate
     this.renderer.shadowMap.autoUpdate = false
-    this.renderer.shadowMap.needsUpdate = true
-    const eyeAspect = this.cachedEyeTargetWidth / Math.max(1, this.cachedEyeTargetHeight)
-    updateStereoEyeCamera(camera, this.leftCamera, -1, this.settings.separation, this.settings.convergence, eyeAspect)
-    updateStereoEyeCamera(camera, this.rightCamera, 1, this.settings.separation, this.settings.convergence, eyeAspect)
+    if (previousShadowAutoUpdate) this.renderer.shadowMap.needsUpdate = true
+    try {
+      const eyeAspect = this.cachedEyeTargetWidth / Math.max(1, this.cachedEyeTargetHeight)
+      updateStereoEyeCamera(camera, this.leftCamera, -1, this.settings.separation, this.settings.convergence, eyeAspect)
+      updateStereoEyeCamera(camera, this.rightCamera, 1, this.settings.separation, this.settings.convergence, eyeAspect)
 
-    this.renderer.setScissorTest(false)
-    this.renderer.setRenderTarget(this.leftTarget)
-    this.renderer.clear()
-    this.renderer.render(scene, this.leftCamera)
-    this.renderer.setRenderTarget(this.rightTarget)
-    this.renderer.clear()
-    this.renderer.render(scene, this.rightCamera)
+      this.renderer.setScissorTest(false)
+      this.renderer.setRenderTarget(this.leftTarget)
+      this.renderer.clear()
+      this.renderer.render(scene, this.leftCamera)
+      this.renderer.setRenderTarget(this.rightTarget)
+      this.renderer.clear()
+      this.renderer.render(scene, this.rightCamera)
+    } finally {
+      this.renderer.shadowMap.autoUpdate = previousShadowAutoUpdate
+    }
 
     this.renderer.setRenderTarget(null)
     this.renderer.render(this.compositeScene, this.compositeCamera)
