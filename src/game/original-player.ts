@@ -1,6 +1,8 @@
+import * as THREE from 'three'
 import RAPIER from '@dimforge/rapier3d-compat'
 import type { Material } from './levels.ts'
 import { SCALE } from './original-data.ts'
+import type { OriginalDocument } from './original-data.ts'
 import { PLAYER_PHYSICS, configureBody, configureContact } from './original-physics.ts'
 import { PLAYER_GROUPS } from './original-collisions.ts'
 import source from './original-player-data.json' with { type: 'json' }
@@ -8,6 +10,21 @@ import inertiaSource from './original-player-inertia.json' with { type: 'json' }
 
 export const ORIGINAL_PLAYER = source
 export const ORIGINAL_PLAYER_INERTIA = inertiaSource
+
+/** Authored per-material player boxes in original coordinates, shared by the
+ * IVP player and the Rapier death-volume sampler. */
+export function originalPlayerBounds(document: OriginalDocument) {
+  const identity = new THREE.Matrix4().elements
+  const bounds = new Map<Material, THREE.Box3>()
+  for (const kind of ['wood', 'stone', 'paper'] as const) {
+    const ball = document.objects.find(o => o.name.toLowerCase() === `ball_${kind}`)
+    const geometry = document.meshes.find(m => m.id === ball?.mesh)
+    if (!ball || !geometry) throw new Error(`Missing original ${kind} player bounds`)
+    if (ball.matrix.some((v, i) => Math.abs(v - identity[i]!) > 1e-7)) throw new Error(`Unverified original ${kind} player frame`)
+    bounds.set(kind, new THREE.Box3().setFromBufferAttribute(new THREE.Float32BufferAttribute(geometry.positions, 3)))
+  }
+  return bounds
+}
 
 export function playerInertia(kind: Material) {
   const radius = source.bodies.find(b => b.shape === 'sphere')!.radius!

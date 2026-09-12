@@ -4,6 +4,7 @@ import type {OriginalDocument} from './original-data.ts'
 import type {IvpWorld} from './ivp-bridge.ts'
 import {SCALE} from './original-data.ts'
 import {PLAYER_PHYSICS,ORIGINAL_TIME_FACTOR} from './original-physics.ts'
+import {originalPlayerBounds} from './original-player.ts'
 import source from './original-player-data.json' with {type:'json'}
 export interface OriginalPlayerPose {position:readonly number[];rotation:readonly number[]}
 export type OriginalDriveKey='left'|'right'|'forward'|'backward'
@@ -14,7 +15,7 @@ type PlayerWorld=Pick<IvpWorld,'sphere'|'convex'|'force'|'removeForce'|'remove'|
 export class OriginalIvpPlayer {
   private world:PlayerWorld
   private paper:number[]
-  private bounds=new Map<Material,THREE.Box3>()
+  private bounds:Map<Material,THREE.Box3>
   private handle?:number
   private captured:OriginalPlayerPose
   private drives=new Map<OriginalDriveKey,{handle:number;direction:number[]}>()
@@ -29,13 +30,7 @@ export class OriginalIvpPlayer {
     const unique=new Map<string,number[]>()
     for(let i=0;i<mesh.positions.length;i+=3) {const p=mesh.positions.slice(i,i+3).map(Math.fround);unique.set(p.join(' '),p)}
     this.paper=[...unique.values()].flat()
-    for(const kind of ['wood','stone','paper'] as const) {
-      const ball=document.objects.find(o=>o.name.toLowerCase()===`ball_${kind}`)
-      const geometry=document.meshes.find(m=>m.id===ball?.mesh)
-      if(!ball||!geometry) throw new Error(`Missing original ${kind} player bounds`)
-      if(ball.matrix.some((v,i)=>Math.abs(v-identity[i]!)>1e-7)) throw new Error(`Unverified original ${kind} player frame`)
-      this.bounds.set(kind,new THREE.Box3().setFromBufferAttribute(new THREE.Float32BufferAttribute(geometry.positions,3)))
-    }
+    this.bounds=originalPlayerBounds(document)
     this.release(material)
   }
   private live() {if(this.disposed) throw new Error('IVP player is disposed')}

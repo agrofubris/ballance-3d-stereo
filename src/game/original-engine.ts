@@ -1,4 +1,4 @@
-import { replacePlayerCollider } from './original-player'
+import { originalPlayerBounds, replacePlayerCollider } from './original-player'
 import { OriginalLift } from './original-lift'
 import { OriginalSlider } from './original-slider'
 import { OriginalArms } from './original-arms'
@@ -22,6 +22,7 @@ import { OriginalFinish } from './original-finish'
 import { OriginalSack } from './original-sack'
 import { OriginalSwing } from './original-swing'
 import { OriginalDepthTest, ORIGINAL_DEPTH } from './original-depth'
+import { OriginalDeathTest } from './original-death'
 import { OriginalSectorObject, ORIGINAL_OBJECTS } from './original-objects'
 import type { OriginalObjectKind } from './original-objects'
 import { OriginalPusher } from './original-pusher'
@@ -100,6 +101,8 @@ export class OriginalEngine {
   finishMeshes = new Map<string, Map<string, THREE.Mesh>>()
   dynamics: Moving[] = []
   depthTest?: OriginalDepthTest
+  deathTest?: OriginalDeathTest
+  playerBounds?: Map<Material, THREE.Box3>
   sectorObjects: OriginalSectorObject[] = []
   pushers: OriginalPusher[] = []
   hinges: OriginalHinge[] = []
@@ -166,6 +169,7 @@ export class OriginalEngine {
     this.renderer.domElement.dataset.physicsBackend=this.nativeModule?'ivp':'rapier'
     const balls = await loadOriginal('balls'), materials = await this.ballMaterials.create(balls)
     this.ballsDocument=balls
+    this.playerBounds=originalPlayerBounds(balls)
     this.flameTexture = await new THREE.TextureLoader().loadAsync('/original/textures/Particle_Flames.png')
     this.flameTexture.colorSpace = THREE.SRGBColorSpace
     this.smokeTexture = await new THREE.TextureLoader().loadAsync('/original/textures/Particle_Smoke.png')
@@ -212,6 +216,7 @@ export class OriginalEngine {
     this.clearLevel(); this.materials = resource; this.moduleMaterials = modules.map(m => m.resources); this.sky = sky; this.scene.background = sky
     this.physics = new RAPIER.World({ x: 0, y: GRAVITY, z: 0 }); this.physics.timestep = PHYSICS_STEP
     this.depthTest = new OriginalDepthTest(document)
+    this.deathTest = new OriginalDeathTest(document)
     const group = (name: string) => new Set(document.groups.find(g => g.name === name)?.members || [])
     const depthMembers = new Set(ORIGINAL_DEPTH.groups.flatMap(name => [...group(name)]))
     const sector = (id: number) => Number(document.groups.find(g => /^Sector_/.test(g.name) && g.members.includes(id))?.name.slice(-2) || 1)
@@ -423,6 +428,7 @@ export class OriginalEngine {
       if(hold)this.native.capture()
       this.audio.contacts(this.native.sound.frame)
     }
+    this.deathTest?.restart()
     this.body.setEnabled(!hold);this.ball.visible=!hold
   }
   /** Deterministic probe staging for harness/dev tools. Routes through each
@@ -433,6 +439,7 @@ export class OriginalEngine {
     const rotation = (options.rotation ?? new THREE.Quaternion()).clone().normalize()
     this.cancelTransformation()
     this.respawnSequence.reset()
+    this.deathTest?.restart()
     this.spawnAge = undefined
     this.spawnEffect?.end()
     this.endingAge = undefined
@@ -519,9 +526,26 @@ export class OriginalEngine {
     if(this.native&&this.native.player.body===undefined) {this.moveNativeCaptured();this.native.material(this.state.material);this.syncNativePlayer()}
     this.audio.stop('Misc_Trafo')
   }
+  /** One recovered DepthTestCubes sample per script frame, immediately before
+   * the physics step, mirroring OriginalIvpRuntime.step. */
+  private stepRapier(dt:number) {
+    this.sampleDeath()
+    this.physics!.timestep=dt
+    this.physics!.step()
+  }
+  private sampleDeath() {
+    if(this.native||!this.deathTest||!this.playerBounds||!this.body)return
+    const bounds=this.playerBounds.get(this.state.material)
+    if(!bounds)return
+    const p=this.body.translation(),q=this.body.rotation()
+    const frame=new THREE.Matrix4().compose(
+      new THREE.Vector3(p.x*4,p.y*4,-p.z*4),
+      new THREE.Quaternion(-q.x,-q.y,q.z,q.w),
+      new THREE.Vector3(1,1,1))
+    this.deathTest.sample(bounds,frame)
+  }
   private checkPlayerDeath() {
-    const reset=this.resets[this.state.checkpoint]||this.resets[0]
-    const dead=this.native?!!this.native.deathTest.hit:!!reset&&this.body!.translation().y<originalPosition(reset).y-22
+    const dead=this.native?!!this.native.deathTest.hit:!!this.deathTest?.hit
     if(!dead)return false
     if(!this.respawnSequence.begin())return true
     this.keys.clear();this.touch={x:0,z:0,brake:false}
@@ -553,6 +577,7 @@ export class OriginalEngine {
         const body=this.native?.player.body
         if(body!==undefined)this.native!.world.wake(body)
         this.native?.deathTest.restart()
+        this.deathTest?.restart()
       }
     }
     this.elapsed+=dt
@@ -562,7 +587,7 @@ export class OriginalEngine {
       this.native.input(new Set(),this.yaw)
       for(const sound of this.native.step(dt*1000))this.audio.effect(sound)
       this.audio.contacts(this.native.sound.frame);this.syncNativePlayer();this.debris?.stepIvp(dt)
-    } else {this.physics!.timestep=dt;this.physics!.step()}
+    } else this.stepRapier(dt)
   }
   private stepSpawn(dt:number) {
     this.spawnAge=(this.spawnAge??0)+dt
@@ -573,7 +598,7 @@ export class OriginalEngine {
       this.native.input(new Set(),this.yaw)
       for(const sound of this.native.step(dt*1000))this.audio.effect(sound)
       this.audio.contacts(this.native.sound.frame);this.syncNativePlayer()
-    } else {this.physics!.timestep=dt;this.physics!.step()}
+    } else this.stepRapier(dt)
     if(this.spawnAge>=SPAWN_DURATION) {
       this.spawnAge=undefined
       this.spawnEffect?.end()
@@ -581,6 +606,7 @@ export class OriginalEngine {
       const body=this.native?.player.body
       if(body!==undefined)this.native!.world.wake(body)
       this.native?.deathTest.restart()
+      this.deathTest?.restart()
     }
   }
   step(dt: number) {
@@ -644,7 +670,7 @@ export class OriginalEngine {
       this.transformerVisual?.update(this.transformation.age)
       this.debris?.beforeStep(dt)
       if(this.native) {this.moveNativeCaptured();for(const sound of this.native.step(dt*1000))this.audio.effect(sound);this.audio.contacts(this.native.sound.frame);this.syncNativePlayer()}
-      else {this.physics.timestep = dt;this.physics.step()}
+      else this.stepRapier(dt)
       if(this.checkPlayerDeath())return
       this.state.speed = 0; this.state.score = Math.floor(this.state.time * 2)
       if(!this.native)this.depthTest?.update()
@@ -678,7 +704,7 @@ export class OriginalEngine {
     this.physics.timestep = dt
     this.debris?.beforeStep(dt)
     if(this.native) {for(const sound of this.native.step(dt*1000))this.audio.effect(sound);this.audio.contacts(this.native.sound.frame);this.syncNativePlayer()}
-    else this.physics.step()
+    else this.stepRapier(dt)
     if(!this.native)this.depthTest?.update()
     if(this.native)this.debris?.stepIvp(dt)
     else this.debris?.step(this.physics, dt)
@@ -886,6 +912,7 @@ export class OriginalEngine {
     this.audio.contacts({rolls:[],impacts:[]})
     this.debris?.clearIvp();this.native?.dispose();this.native=undefined
     this.depthTest = undefined
+    this.deathTest = undefined
     this.sectorObjects = []
     this.chains = []
     for (const finish of this.finishAdapters) finish.dispose()
