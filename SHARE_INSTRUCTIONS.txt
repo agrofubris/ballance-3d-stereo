@@ -9,8 +9,9 @@ inside this folder. Nothing is installed on your system.
 YOU NEED
 --------
 - Windows 10/11.
-- Your own legally bought Ballance (installed folder or ISO).
-  Example: C:\Games\Ballance. Install it first if you only have an ISO.
+- Your own legally bought Ballance. The wizard reads an installed folder
+  (for example C:\Games\Ballance). If you only have an ISO, install from
+  it first; the wizard cannot read or mount an ISO by itself.
 - Internet for the one-time download. Nothing else to install.
 
 PLAY IN 3 STEPS
@@ -21,9 +22,10 @@ PLAY IN 3 STEPS
 2. Double-click Setup-Ballance.bat.
    - Press Y to accept the open-source licenses.
    - When asked, type your Ballance folder and press Enter.
-   - Wait. It downloads its own Node/Python/FFmpeg, converts
-     your levels, and opens the game. Say N to the optional
-     exact-physics question unless you want a 10-20 minute build.
+   - Wait. It downloads its own Node/Python/FFmpeg (each archive is
+     checked with SHA-256), converts your levels, and opens the game.
+     Say N to the optional exact-physics question unless you want a
+     10-20 minute build.
 
 3. Play at http://127.0.0.1:5173/ in your browser.
    Next time, just double-click Launch-Ballance.bat.

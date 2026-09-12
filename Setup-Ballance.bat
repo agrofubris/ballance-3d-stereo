@@ -26,6 +26,21 @@ set "LIBCMO_REVISION=a5aee0a464e6936e726af4eb3219140c447dbe36"
 set "YYC_REVISION=422aa152ff36a9f545d9c7a8d127b996e3f13f73"
 set "STB_REVISION=2e2bef463a5b53ddf8bb788e25da6b8506314c08"
 
+rem SHA-256 of every downloaded tool archive. The download helper verifies the
+rem hash with certutil and rejects mismatching files. FFmpeg is pinned to a
+rem versioned package because gyan.dev also serves a rolling "release" name.
+set "NODE_SHA256=c95d8a7e1c99e669cc08c9f1176e068c1f50847c37908fcb8c35b62482366511"
+set "PYTHON_SHA256=4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
+set "CMAKE_SHA256=4d52ebab7193a698651639ed80d8d04fd903358843572cf44c7fd234cb7c26ab"
+set "FFMPEG_VERSION=9.0.1"
+set "FFMPEG_SHA256=fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9"
+set "GIT_SHA256=f48e2d2dc74a24454adc6d8fd0ac25bf9c2386f19cfb06202b9465aaad4f9f05"
+set "LLVM_SHA256=c54ac8146b420fe72e11e6fdd56498d6818011ad23267196b6ab37b5ac9264c3"
+
+rem Non-interactive path check used by tests and scripted installs:
+rem   Setup-Ballance.bat --check-game "<folder>"
+if /i "%~1"=="--check-game" goto :check_game
+
 echo.
 echo  BALLANCE 3D STEREO - LOCAL SETUP WIZARD
 echo  =========================================
@@ -34,7 +49,9 @@ echo  source package and never installs a system-wide dependency.
 echo.
 echo  It can download open-source tools and pinned source code into .tools and
 echo  .local, then build the private asset converter and IVP WebAssembly runtime.
-echo  Your legally obtained Ballance installation/ISO is never downloaded.
+echo  Your legally obtained Ballance installation is never downloaded; if you
+echo  only own an ISO, install from it first. The wizard reads an installed
+echo  folder and never mounts an ISO by itself.
 echo  After accepting, the only information requested is your Ballance folder.
 echo  License URLs and notices are listed in THIRD_PARTY.md.
 echo.
@@ -54,12 +71,12 @@ call :ensure_ffmpeg
 if errorlevel 1 goto :failed
 
 echo.
-echo Installing JavaScript dependencies locally...
-"%NODE_EXE%" "%NPM_CLI_JS%" install --no-audit --no-fund
-if errorlevel 1 (
-  echo npm install failed. Check the network connection and run this wizard again.
-  goto :failed
-)
+  echo Installing JavaScript dependencies locally...
+  "%NODE_EXE%" "%NPM_CLI_JS%" ci --no-audit --no-fund
+  if errorlevel 1 (
+    echo npm ci failed. Check the network connection and run this wizard again.
+    goto :failed
+  )
 
 echo.
 call :prepare_assets
@@ -103,7 +120,7 @@ set "NODE_EXE=%NODE_DIR%\node.exe"
 set "NPM_CLI_JS=%NODE_DIR%\node_modules\npm\bin\npm-cli.js"
 if exist "%NODE_EXE%" if exist "%NPM_CLI_JS%" exit /b 0
 set "NODE_ZIP=%DOWNLOADS%\node-v%NODE_VERSION%-win-x64.zip"
-call :download "https://nodejs.org/dist/v%NODE_VERSION%/node-v%NODE_VERSION%-win-x64.zip" "%NODE_ZIP%"
+call :download "https://nodejs.org/dist/v%NODE_VERSION%/node-v%NODE_VERSION%-win-x64.zip" "%NODE_ZIP%" "%NODE_SHA256%"
 if errorlevel 1 exit /b 1
 tar.exe -xf "%NODE_ZIP%" -C "%TOOLS%"
 if errorlevel 1 exit /b 1
@@ -124,7 +141,7 @@ if exist "%PYTHON_DIR%\python.exe" (
   exit /b 0
 )
 set "PYTHON_ZIP=%DOWNLOADS%\python-%PYTHON_VERSION%-embed-amd64.zip"
-call :download "https://www.python.org/ftp/python/%PYTHON_VERSION%/python-%PYTHON_VERSION%-embed-amd64.zip" "%PYTHON_ZIP%"
+call :download "https://www.python.org/ftp/python/%PYTHON_VERSION%/python-%PYTHON_VERSION%-embed-amd64.zip" "%PYTHON_ZIP%" "%PYTHON_SHA256%"
 if errorlevel 1 exit /b 1
 if not exist "%PYTHON_DIR%" md "%PYTHON_DIR%"
 tar.exe -xf "%PYTHON_ZIP%" -C "%PYTHON_DIR%"
@@ -144,7 +161,7 @@ if exist "%CMAKE_DIR%\bin\cmake.exe" (
   exit /b 0
 )
 set "CMAKE_ZIP=%DOWNLOADS%\cmake-%CMAKE_VERSION%-windows-x86_64.zip"
-call :download "https://github.com/Kitware/CMake/releases/download/v%CMAKE_VERSION%/cmake-%CMAKE_VERSION%-windows-x86_64.zip" "%CMAKE_ZIP%"
+call :download "https://github.com/Kitware/CMake/releases/download/v%CMAKE_VERSION%/cmake-%CMAKE_VERSION%-windows-x86_64.zip" "%CMAKE_ZIP%" "%CMAKE_SHA256%"
 if errorlevel 1 exit /b 1
 tar.exe -xf "%CMAKE_ZIP%" -C "%TOOLS%"
 if errorlevel 1 exit /b 1
@@ -161,8 +178,8 @@ set "FFMPEG_EXE="
 set "FFMPEG_ROOT=%TOOLS%\ffmpeg"
 for /r "%FFMPEG_ROOT%" %%F in (ffmpeg.exe) do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
 if defined FFMPEG_EXE exit /b 0
-set "FFMPEG_ZIP=%DOWNLOADS%\ffmpeg-release-essentials.zip"
-call :download "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" "%FFMPEG_ZIP%"
+set "FFMPEG_ZIP=%DOWNLOADS%\ffmpeg-%FFMPEG_VERSION%-essentials_build.zip"
+call :download "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-%FFMPEG_VERSION%-essentials_build.zip" "%FFMPEG_ZIP%" "%FFMPEG_SHA256%"
 if errorlevel 1 exit /b 1
 if not exist "%FFMPEG_ROOT%" md "%FFMPEG_ROOT%"
 tar.exe -xf "%FFMPEG_ZIP%" -C "%FFMPEG_ROOT%"
@@ -182,7 +199,7 @@ if exist "%GIT_DIR%\cmd\git.exe" (
   exit /b 0
 )
 set "GIT_ZIP=%DOWNLOADS%\MinGit-%GIT_VERSION%-64-bit.zip"
-call :download "https://github.com/git-for-windows/git/releases/download/%GIT_TAG%/MinGit-%GIT_VERSION%-64-bit.zip" "%GIT_ZIP%"
+call :download "https://github.com/git-for-windows/git/releases/download/%GIT_TAG%/MinGit-%GIT_VERSION%-64-bit.zip" "%GIT_ZIP%" "%GIT_SHA256%"
 if errorlevel 1 exit /b 1
 if not exist "%GIT_DIR%" md "%GIT_DIR%"
 tar.exe -xf "%GIT_ZIP%" -C "%GIT_DIR%"
@@ -206,7 +223,7 @@ if defined CLANGPP_EXE (
 where link.exe >nul 2>&1
 if errorlevel 1 echo NOTE: MSVC link.exe not found. Native BMap build may need Visual Studio Build Tools.
 set "LLVM_ZIP=%DOWNLOADS%\clang+llvm-%LLVM_VERSION%-x86_64-pc-windows-msvc.tar.xz"
-call :download "https://github.com/llvm/llvm-project/releases/download/llvmorg-%LLVM_VERSION%/clang+llvm-%LLVM_VERSION%-x86_64-pc-windows-msvc.tar.xz" "%LLVM_ZIP%"
+call :download "https://github.com/llvm/llvm-project/releases/download/llvmorg-%LLVM_VERSION%/clang+llvm-%LLVM_VERSION%-x86_64-pc-windows-msvc.tar.xz" "%LLVM_ZIP%" "%LLVM_SHA256%"
 if errorlevel 1 exit /b 1
 if not exist "%LLVM_ROOT%" md "%LLVM_ROOT%"
 tar.exe -xf "%LLVM_ZIP%" -C "%LLVM_ROOT%"
@@ -229,8 +246,9 @@ call :ensure_python
 if errorlevel 1 exit /b 1
 call :ensure_ffmpeg
 if errorlevel 1 exit /b 1
-set "GAME_DIR="
-call :resolve_game_dir
+  set "GAME_DIR="
+  set "GAME_INPUT="
+  call :resolve_game_dir
 if errorlevel 1 exit /b 1
 set "BMAP_DLL="
 call :ensure_bmap_prebuilt
@@ -255,22 +273,21 @@ echo Private asset pack ready in .local\original.
 exit /b 0
 
 :resolve_game_dir
-set "GAME_INPUT="
-set /p "GAME_INPUT=Enter your Ballance folder or .iso file (for example C:\Games\Ballance): "
+if not defined GAME_INPUT set /p "GAME_INPUT=Enter your installed Ballance folder (for example C:\Games\Ballance): "
 set "GAME_INPUT=%GAME_INPUT:"=%"
 if not defined GAME_INPUT (
-  echo No path entered. If you have an ISO, double-click it in Explorer to mount it,
+  echo No path entered. This wizard reads an installed Ballance folder, not an
+  echo ISO. If you only have an ISO, double-click it in Explorer to mount it,
   echo install Ballance once, then enter that installed folder here.
   exit /b 1
 )
-if exist "%GAME_INPUT%\3D_Entities" (
-  set "GAME_DIR=%GAME_INPUT%"
-  exit /b 0
-)
+if exist "%GAME_INPUT%\3D Entities" set "GAME_DIR=%GAME_INPUT%"
+if exist "%GAME_INPUT%\3D_Entities" set "GAME_DIR=%GAME_INPUT%"
+if defined GAME_DIR exit /b 0
 if exist "%GAME_INPUT%" (
-  echo "%GAME_INPUT%" does not contain 3D_Entities.
+  echo "%GAME_INPUT%" contains neither "3D Entities" nor "3D_Entities".
   echo Install Ballance from your ISO first, then enter the installed folder.
-  echo Example: D:\ or C:\Games\Ballance containing 3D_Entities.
+  echo Example: C:\Games\Ballance containing 3D Entities.
   exit /b 1
 )
 echo Path not found: %GAME_INPUT%
@@ -381,13 +398,50 @@ exit /b 0
 :download
 set "DOWNLOAD_URL=%~1"
 set "DOWNLOAD_FILE=%~2"
+set "DOWNLOAD_SHA256=%~3"
+if exist "%DOWNLOAD_FILE%" (
+  call :verify_sha256 "%DOWNLOAD_FILE%" "%DOWNLOAD_SHA256%"
+  if not errorlevel 1 exit /b 0
+  echo Cached file failed its SHA-256 check; downloading again.
+  del /q "%DOWNLOAD_FILE%" >nul 2>&1
+)
 echo Downloading %DOWNLOAD_URL%
 curl.exe --fail --location --retry 3 --output "%DOWNLOAD_FILE%" "%DOWNLOAD_URL%"
-exit /b %errorlevel%
+if errorlevel 1 exit /b 1
+call :verify_sha256 "%DOWNLOAD_FILE%" "%DOWNLOAD_SHA256%"
+if errorlevel 1 (
+  echo ERROR: SHA-256 mismatch for "%DOWNLOAD_FILE%"
+  echo Expected %DOWNLOAD_SHA256%
+  del /q "%DOWNLOAD_FILE%" >nul 2>&1
+  exit /b 1
+)
+exit /b 0
+
+:verify_sha256
+set "EXPECTED_SHA256=%~2"
+set "ACTUAL_SHA256="
+for /f "skip=1 delims=" %%H in ('certutil -hashfile "%~1" SHA256') do if not defined ACTUAL_SHA256 set "ACTUAL_SHA256=%%H"
+if not defined ACTUAL_SHA256 exit /b 1
+set "ACTUAL_SHA256=%ACTUAL_SHA256: =%"
+if /i "%ACTUAL_SHA256%"=="%EXPECTED_SHA256%" exit /b 0
+echo SHA-256 check failed for "%~1"
+echo   expected %EXPECTED_SHA256%
+echo   actual   %ACTUAL_SHA256%
+exit /b 1
 
 :cancel
 echo Setup cancelled. No external download was started.
 exit /b 2
+
+:check_game
+set "GAME_INPUT=%~2"
+call :resolve_game_dir
+if errorlevel 1 (
+  echo Game folder check failed.
+  exit /b 1
+)
+echo Game folder accepted: "%GAME_DIR%"
+exit /b 0
 
 :failed
 echo.
