@@ -27,7 +27,9 @@ export class OriginalTransformerVisual {
     const color = document.materials.find(m => m.name === 'AnimTrafo_RingParts_Color')
     if (color) this.color = materials.get(color.id)
     const flash = document.materials.find(m => m.name === 'AnimTrafo_Flashfield')
-    if (flash) { const material = materials.get(flash.id)!; this.flashMaterial = material; material.blending = THREE.AdditiveBlending; material.depthWrite = false; material.side = THREE.DoubleSide }
+    // The recovered material is ONE,ONE and now maps exactly in the shared
+    // loader; the old stock AdditiveBlending override was (SRC_ALPHA,ONE).
+    if (flash) { const material = materials.get(flash.id)!; this.flashMaterial = material; material.depthWrite = false; material.side = THREE.DoubleSide }
   }
   begin(pad: OriginalObject, meshes: THREE.Mesh[]) {
     this.reset(); this.hidden = meshes; meshes.forEach(m => { m.visible = false })

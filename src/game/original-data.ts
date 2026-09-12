@@ -4,7 +4,7 @@ export interface OriginalObject { id: number; name: string; mesh: number; matrix
 export interface OriginalMesh { id: number; name?: string; positions: number[]; normals: number[]; uvs: number[]; indices: number[]; faceMaterials: number[]; materials: number[] }
 export interface OriginalDocument {
   objects: OriginalObject[]; meshes: OriginalMesh[]
-  materials: { id: number; name: string; emissive: number[]; texture: number; diffuse: number[]; specular?: number[]; specularPower?: number; AlphaBlendEnabled: boolean; AlphaTestEnabled: boolean; TwoSidedEnabled: boolean; ZWriteEnabled: boolean; alphaRef?: number; alphaFunc?: number }[]
+  materials: { id: number; name: string; emissive: number[]; texture: number; diffuse: number[]; specular?: number[]; specularPower?: number; AlphaBlendEnabled: boolean; AlphaTestEnabled: boolean; TwoSidedEnabled: boolean; ZWriteEnabled: boolean; alphaRef?: number; alphaFunc?: number; sourceBlend?: number; destBlend?: number }[]
   textures: { id: number; file: string }[]; groups: { name: string; members: number[] }[]
 }
 /** Invisible collision-only floors still participate in physics. */
@@ -73,6 +73,30 @@ export function configureRecoveredAlphaTest(material: THREE.MeshPhongMaterial, m
   }
   return alphaTest
 }
+/** D3D8 blend factor codes used by recovered sourceBlend/destBlend. */
+const BLEND_ONE = 2
+const BLEND_SRC_ALPHA = 5
+const BLEND_INV_SRC_ALPHA = 6
+/**
+ * Recovered D3D8 blending applies one factor pair to every channel; Three's
+ * named modes are not exact (non-premultiplied AdditiveBlending is
+ * SRC_ALPHA/ONE, never ONE/ONE), so the shipped pairs are set explicitly with
+ * CustomBlending. Packs or pairs without recovered data keep NormalBlending.
+ */
+export function configureRecoveredBlending(material: THREE.MeshPhongMaterial, m: OriginalDocument['materials'][number]) {
+  material.transparent = m.AlphaBlendEnabled
+  if (!m.AlphaBlendEnabled || typeof m.sourceBlend !== 'number' || typeof m.destBlend !== 'number') return
+  const factors = m.sourceBlend === BLEND_ONE && m.destBlend === BLEND_ONE ? [THREE.OneFactor, THREE.OneFactor]
+    : m.sourceBlend === BLEND_SRC_ALPHA && m.destBlend === BLEND_INV_SRC_ALPHA ? [THREE.SrcAlphaFactor, THREE.OneMinusSrcAlphaFactor]
+    : m.sourceBlend === BLEND_ONE && m.destBlend === BLEND_SRC_ALPHA ? [THREE.OneFactor, THREE.SrcAlphaFactor]
+    : null
+  if (!factors) return
+  material.blending = THREE.CustomBlending
+  material.blendEquation = THREE.AddEquation
+  material.blendEquationAlpha = THREE.AddEquation
+  material.blendSrc = factors[0]!; material.blendSrcAlpha = factors[0]!
+  material.blendDst = factors[1]!; material.blendDstAlpha = factors[1]!
+}
 export class OriginalMaterials {
   textures: THREE.Texture[] = []; materials: THREE.MeshPhongMaterial[] = []
   async create(document: OriginalDocument) {
@@ -87,8 +111,9 @@ export class OriginalMaterials {
       const specular = !powered ? new THREE.Color(0x222222)
         : m.specularPower! > 0 && m.specular ? new THREE.Color(m.specular[0], m.specular[1], m.specular[2])
         : new THREE.Color(0x000000)
-      const material = new THREE.MeshPhongMaterial({ map: textures.get(m.texture) ?? null, color: new THREE.Color(m.diffuse[0], m.diffuse[1], m.diffuse[2]), emissive: new THREE.Color(m.emissive[0], m.emissive[1], m.emissive[2]), emissiveMap: textures.get(m.texture) ?? null, shininess: powered && m.specularPower! > 0 ? m.specularPower! : 8, specular, transparent: m.AlphaBlendEnabled, opacity: m.diffuse[3], depthWrite: m.ZWriteEnabled, side: m.TwoSidedEnabled ? THREE.DoubleSide : THREE.FrontSide })
+      const material = new THREE.MeshPhongMaterial({ map: textures.get(m.texture) ?? null, color: new THREE.Color(m.diffuse[0], m.diffuse[1], m.diffuse[2]), emissive: new THREE.Color(m.emissive[0], m.emissive[1], m.emissive[2]), emissiveMap: textures.get(m.texture) ?? null, shininess: powered && m.specularPower! > 0 ? m.specularPower! : 8, specular, opacity: m.diffuse[3], depthWrite: m.ZWriteEnabled, side: m.TwoSidedEnabled ? THREE.DoubleSide : THREE.FrontSide })
       configureRecoveredAlphaTest(material, m)
+      configureRecoveredBlending(material, m)
       material.name = m.name
       this.materials.push(material); return [m.id, material]
     }))
