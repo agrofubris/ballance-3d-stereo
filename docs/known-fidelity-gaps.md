@@ -27,3 +27,14 @@ sustained dynamics.
 No tuning workaround is applied; a future fidelity fix would need to
 target contact generation/manifold selection, not material or solver
 magnitudes.
+
+## Stage 1 Rapier finish-adapter activation (fixed)
+
+`PE_Balloon_01` is not a member of any `Sector_XX` group in the converted
+levels, so the generic sector lookup assigned the Rapier `OriginalFinish`
+adapter to sector 1. The engine now scopes `PE_Levelende`-owned objects to the
+final reset-point sector, matching `OriginalIvpRuntime`, and a sector-owned
+managed ending takes precedence over the raw level-end proximity shortcut, so
+Rapier wakes, boards, rides, departs and completes through the same lifecycle
+as native. Verified by `stage1_wood_finish` and `stage1_finish_reset` on both
+solvers.

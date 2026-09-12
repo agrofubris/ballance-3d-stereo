@@ -48,6 +48,7 @@ npm run dev
 npm test
 npm run lint
 npm run build
+npm run harness -- --list   # dual-solver Stage 1 harness (docs/harness.md)
 ```
 
 Converted pack lives at `.local/original`; optional IVP runtime at

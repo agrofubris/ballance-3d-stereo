@@ -47,6 +47,8 @@ export class OriginalIvpRuntime {
   readonly sound=new OriginalIvpSound()
   readonly clock=new OriginalPhysicsClock()
   readonly soundIds=new Map<number,OriginalSoundIds>()
+  /** Semantic names for live bodies, for harness observations. */
+  readonly bodyNames=new Map<number,string>()
   private assemblies:Assembly[]=[]
   private visuals:IvpVisuals
   private wake:{body:number;watcher:OriginalProximity;origin?:THREE.Vector3}[]=[]
@@ -69,6 +71,7 @@ export class OriginalIvpRuntime {
       for(const floor of originalIvpFloors(course)) {
         const body=this.world.triangles(floor.triangles,floor.descriptor)
         this.soundIds.set(body,originalFloorSoundIds(course,floor.objectId))
+        this.bodyNames.set(body,course.objects.find(o=>o.id===floor.objectId)?.name??`floor:${floor.objectId}`)
       }
       const supported=[...Object.keys(objects),...Object.keys(hinges),'P_Modul_01','P_Modul_34','P_Modul_18','P_Modul_29','P_Modul_03','P_Modul_17','P_Modul_08','P_Modul_26']
       for(const parent of course.objects) {
@@ -118,6 +121,7 @@ export class OriginalIvpRuntime {
     }
     this.parts.push({body,name:parent.name+'/'+data.target,mesh:this.visuals.get(parent.name)?.get(data.target),initialRotation:flippedRotation(rotation.toArray()).invert(),owned:true,...(this.depthMembers.has(parent.id)?{removeOnFall:()=>this.world.remove(body)}:{})})
     this.soundIds.set(body,originalModuleSoundIds(assembly.kind,data.target))
+    this.bodyNames.set(body,parent.name+'/'+data.target)
     return body
   }
   private frame(assembly:Assembly,value:string|number[]) {
@@ -168,10 +172,10 @@ export class OriginalIvpRuntime {
   activate(sector:number,reset=false) {
     if(this.disposed) throw new Error('IVP runtime is disposed')
     if(this.sector===sector&&!reset) return
-    if(this.finish&&(reset||this.ending?.sector!==sector)) {for(const body of this.finish.parts.values())this.soundIds.delete(body);this.finish.dispose();this.finish=undefined}
+    if(this.finish&&(reset||this.ending?.sector!==sector)) {for(const body of this.finish.parts.values()){this.soundIds.delete(body);this.bodyNames.delete(body)};this.finish.dispose();this.finish=undefined}
     for(const lift of this.lifts)lift.dispose()
     this.lifts=[]
-    for(const part of this.parts){this.soundIds.delete(part.body);if(part.owned)this.world.remove(part.body)}
+    for(const part of this.parts){this.soundIds.delete(part.body);this.bodyNames.delete(part.body);if(part.owned)this.world.remove(part.body)}
     for(const body of this.supports)this.world.remove(body)
     this.supports=[]
     this.parts.length=0;this.wake=[];this.mechanisms=[];this.actuators.length=0;this.sector=sector
@@ -184,6 +188,7 @@ export class OriginalIvpRuntime {
         const lift=new OriginalIvpLift(this.world,parent,assembly.document);this.lifts.push(lift)
         for(const [target,body] of lift.parts) {
           this.soundIds.set(body,originalModuleSoundIds(kind,target))
+          this.bodyNames.set(body,parent.name+'/'+target)
           const rotation=new THREE.Quaternion();this.frame(assembly,target).decompose(new THREE.Vector3(),rotation,new THREE.Vector3());rotation.normalize()
           this.parts.push({body,name:parent.name+'/'+target,mesh:this.visuals.get(parent.name)?.get(target),initialRotation:flippedRotation(rotation.toArray()).invert(),owned:false,...(target!==liftData.wakeTarget?{removeOnFall:()=>{lift.removeWeight(target)}}:{})})
         }
@@ -252,7 +257,10 @@ export class OriginalIvpRuntime {
       }
     }
     if(this.ending?.sector===sector&&!this.finish)this.finish=new OriginalIvpFinish(this.world,this.ending.parent,this.ending.document,this.visuals.get(this.ending.parent.name))
-    if(this.finish)for(const [target,body] of this.finish.parts)this.soundIds.set(body,originalModuleSoundIds('pe_balloon',target))
+    if(this.finish)for(const [target,body] of this.finish.parts) {
+      this.soundIds.set(body,originalModuleSoundIds('pe_balloon',target))
+      this.bodyNames.set(body,`${this.ending!.parent.name}/${target}`)
+    }
     this.syncVisuals()
   }
   input(keys:Set<OriginalDriveKey>,yaw:number|readonly number[]) {
@@ -286,7 +294,7 @@ export class OriginalIvpRuntime {
       const part=this.parts[i]!
       if(!part.removeOnFall||this.world.state(part.body)[1]!>=this.depthLimit)continue
       part.removeOnFall()
-      this.soundIds.delete(part.body)
+      this.soundIds.delete(part.body);this.bodyNames.delete(part.body)
       if(part.mesh){part.mesh.visible=false;part.mesh.position.set(0,0,0)}
       this.parts.splice(i,1)
     }
@@ -310,5 +318,5 @@ export class OriginalIvpRuntime {
       part.mesh.quaternion.copy(flippedRotation(state.slice(3,7)).multiply(part.initialRotation))
     }
   }
-  dispose() {if(this.disposed) return;for(const fan of this.fans)fan.dispose();this.finish?.dispose();this.world.dispose();this.parts.length=0;this.disposed=true}
+  dispose() {if(this.disposed) return;for(const fan of this.fans)fan.dispose();this.finish?.dispose();this.world.dispose();this.parts.length=0;this.bodyNames.clear();this.disposed=true}
 }

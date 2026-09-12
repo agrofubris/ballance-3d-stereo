@@ -66,6 +66,8 @@ export class OriginalEngine {
   private coarsePointer=matchMedia('(pointer: coarse)').matches
   worldGroup = new THREE.Group()
   surfaceSounds = new Map<number, 'Stone' | 'Wood' | 'Metal'>()
+  /** Semantic names for static course colliders, for harness observations. */
+  colliderNames = new Map<number, string>()
   physics?: RAPIER.World
   body?: RAPIER.RigidBody
   native?: OriginalIvpRuntime
@@ -233,6 +235,7 @@ export class OriginalEngine {
       if (floor) {
         const collider = this.physics.createCollider(configureContact(RAPIER.ColliderDesc.trimesh(geometry.attributes.position!.array as Float32Array, Uint32Array.from(geometry.index!.array)).setCollisionGroups(floorStoppers.has(object.id) ? LEVEL_STOPPER_GROUPS : LEVEL_FLOOR_GROUPS), FLOOR_PHYSICS))
         this.surfaceSounds.set(collider.handle, woodSounds.has(object.id) ? 'Wood' : metalSounds.has(object.id) ? 'Metal' : 'Stone')
+        this.colliderNames.set(collider.handle, object.name)
       }
     }
     const triggers = (name: string): Trigger[] => document.objects.filter(o => group(name).has(o.id)).sort((a, b) => a.name.localeCompare(b.name)).map(object => ({ object, position: originalPosition(object), mesh: objects.get(object.id), sector: sector(object.id) }))
@@ -361,7 +364,10 @@ export class OriginalEngine {
       }
       // These imported modules render over the authored course floor. Their
       // original scripts never Physicalize the visible machine/flame geometry.
-      if(!/^(P_Trafo_|PS_FourFlames_|PC_TwoFlames_)/.test(parent.name))this.physics!.createCollider(configureContact(RAPIER.ColliderDesc.trimesh(geometry.attributes.position!.array as Float32Array, Uint32Array.from(geometry.index!.array)).setCollisionGroups(originalCollisionGroups('')), FLOOR_PHYSICS))
+      if(!/^(P_Trafo_|PS_FourFlames_|PC_TwoFlames_)/.test(parent.name)) {
+        const collider=this.physics!.createCollider(configureContact(RAPIER.ColliderDesc.trimesh(geometry.attributes.position!.array as Float32Array, Uint32Array.from(geometry.index!.array)).setCollisionGroups(originalCollisionGroups('')), FLOOR_PHYSICS))
+        this.colliderNames.set(collider.handle, `${parent.name}/${object.name}`)
+      }
     }
   }
   addFlames(trigger: Trigger, start: boolean) {
@@ -418,6 +424,53 @@ export class OriginalEngine {
       this.audio.contacts(this.native.sound.frame)
     }
     this.body.setEnabled(!hold);this.ball.visible=!hold
+  }
+  /** Deterministic probe staging for harness/dev tools. Routes through each
+   * backend's own reset/physicalize path instead of emulating gameplay. */
+  stagePlayer(point: THREE.Vector3, sector: number, material: Material, options: { rotation?: THREE.Quaternion; yaw?: number; linearVelocity?: THREE.Vector3; angularVelocity?: THREE.Vector3; resetSector?: boolean } = {}) {
+    if (!this.body || !this.physics || this.loading) throw new Error('Level is not ready for staging')
+    const yaw = options.yaw ?? Math.PI / 2
+    const rotation = (options.rotation ?? new THREE.Quaternion()).clone().normalize()
+    this.cancelTransformation()
+    this.respawnSequence.reset()
+    this.spawnAge = undefined
+    this.spawnEffect?.end()
+    this.endingAge = undefined
+    this.riding = false
+    this.scene.backgroundIntensity = 1
+    this.endingCamera.reset()
+    this.ufo?.reset()
+    this.keys.clear()
+    this.touch = { x: 0, z: 0, brake: false }
+    this.state.checkpoint = THREE.MathUtils.clamp(sector - 1, 0, Math.max(0, this.resets.length - 1))
+    this.checkpointMaterial = material
+    this.state.material = material
+    this.ball.clear()
+    const model = this.ballModels.get(material)
+    if (model) this.ball.add(model)
+    if (this.native) {
+      if (options.linearVelocity || options.angularVelocity) throw new Error('Velocity injection is unavailable on the IVP backend')
+      const original = new THREE.Vector3(point.x * 4, point.y * 4, -point.z * 4)
+      const originalRotation = new THREE.Quaternion(-rotation.x, -rotation.y, rotation.z, rotation.w)
+      this.native.reset(this.state.checkpoint + 1, material, original.toArray(), originalRotation.toArray(), options.resetSector !== false)
+      this.syncNativePlayer()
+      this.gameCamera.inspectAt(point, yaw)
+      this.cameraInputFrame = [...this.gameCamera.steeringFrame.elements]
+      this.yaw = this.targetYaw = this.gameCamera.inputYaw
+    } else {
+      this.body.setTranslation(point, true); this.body.setRotation(rotation, true)
+      this.body.setLinvel(options.linearVelocity ?? { x: 0, y: 0, z: 0 }, true)
+      this.body.setAngvel(options.angularVelocity ?? { x: 0, y: 0, z: 0 }, true)
+      this.transform(material, false)
+      if (options.resetSector !== false) this.resetSectorObjects()
+      this.yaw = this.targetYaw = yaw
+    }
+    this.armCheckpoint()
+    this.follow.copy(point)
+    this.ball.position.copy(point)
+    this.ball.quaternion.copy(rotation)
+    this.ball.visible = true
+    this.body.setEnabled(true)
   }
   private resetSectorObjects() {
     this.depthTest?.resetSector(this.state.checkpoint + 1)
