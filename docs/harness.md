@@ -104,9 +104,14 @@ ride (departure, persistent support, survival, completion) on both backends.
 ## Output
 
 Results are written under `.local/harness/<scenario>/<timestamp>/`
-(`rapier.jsonl`, `ivp.jsonl`, optional `*.runN.jsonl`, `comparison.json`,
-`assertions.json`, `summary.txt`). `.local/` is ignored; no generated trace is
-part of the repository.
+(`rapier.jsonl`, `ivp.jsonl`, optional `*.runN.jsonl`, `meta.json`,
+`comparison.json`, `assertions.json`, `summary.txt`). `meta.json` carries one
+entry per run with its capabilities, notes and source provenance, resolved once
+per harness process: `gitRevision` (full 40-character HEAD hash), `gitDirty`
+(true when tracked or staged files differ from HEAD; untracked files are not
+counted) and `gitBranch`. All three are `null` when git metadata is
+unavailable, and the harness still runs. `.local/` is ignored; no generated
+trace is part of the repository.
 
 ## Native IVP availability
 

@@ -114,6 +114,9 @@ export async function runHarnessScenario(engine: OriginalEngine, scenario: Harne
       contacts: detail || scenario.sample?.contacts === true,
       capabilities: observer.capabilities,
       notes,
+      gitRevision: null,
+      gitDirty: null,
+      gitBranch: null,
     },
     rows,
   }

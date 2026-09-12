@@ -174,6 +174,9 @@ export interface HarnessRunMeta {
   contacts: boolean
   capabilities: HarnessCapabilities
   notes: string[]
+  gitRevision: string | null
+  gitDirty: boolean | null
+  gitBranch: string | null
 }
 
 export interface HarnessCapabilities {

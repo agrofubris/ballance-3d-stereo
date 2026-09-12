@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer as createTcpServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -12,6 +12,19 @@ import type { HarnessAssertionResult, HarnessDeterminism, HarnessRunMeta, Harnes
 import { localOriginalAssets } from './local-original-assets.ts'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
+
+interface GitMetadata { gitRevision: string | null; gitDirty: boolean | null; gitBranch: string | null }
+
+function resolveGitMetadata(): GitMetadata {
+  const run = (args: string[]) => execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  let gitRevision: string | null = null
+  let gitDirty: boolean | null = null
+  let gitBranch: string | null = null
+  try { gitRevision = run(['rev-parse', 'HEAD']) || null } catch { /* git metadata unavailable */ }
+  try { gitDirty = run(['status', '--porcelain', '--untracked-files=no']).length > 0 } catch { /* git metadata unavailable */ }
+  try { gitBranch = run(['branch', '--show-current']) || null } catch { /* git metadata unavailable */ }
+  return { gitRevision, gitDirty, gitBranch }
+}
 
 type Flags = Record<string, string | boolean>
 
@@ -178,6 +191,7 @@ async function main() {
     return 2
   }
   const repeat = Math.max(1, Number(typeof flags.repeat === 'string' ? flags.repeat : '1') || 1)
+  const git = resolveGitMetadata()
   const detail = flags.contacts === true || flags['verbose-contacts'] === true
   const timeoutMs = Math.max(1, Number(typeof flags.timeout === 'string' ? flags.timeout : '600') || 600) * 1000
   const outRoot = typeof flags.out === 'string' ? resolve(flags.out) : join(repoRoot, '.local', 'harness', scenario.id)
@@ -232,6 +246,7 @@ async function main() {
     const startedAt = Date.now()
     const onResult = (payload: HarnessResultPayload) => {
       if (payload.status === 'error') { rejectAll(new Error(`${payload.solver} run ${payload.run}: ${payload.error}${payload.stack ? `\n${payload.stack}` : ''}`)); return }
+      if (payload.meta) Object.assign(payload.meta, git)
       results.set(keyOf(payload), payload)
       const wall = ((Date.now() - startedAt) / 1000).toFixed(1)
       const notes = payload.meta?.notes?.length ? ` notes: ${payload.meta.notes.join('; ')}` : ''
@@ -291,6 +306,7 @@ async function main() {
       writeFileSync(join(outputDirectory, file), rows.map((row: unknown) => JSON.stringify(row)).join('\n') + '\n')
       if (run.run === 1) assertions.push(...runAssertions(scenario.assertions ?? [], rows, run.solver))
     }
+    writeFileSync(join(outputDirectory, 'meta.json'), JSON.stringify(runs.map(run => results.get(keyOf(run))!.meta ?? null), null, 2) + '\n')
     for (const solver of active) {
       const solverRuns = runs.filter(run => run.solver === solver)
       determinism.push(compareDeterminism(solver, solverRuns.map(run => ({ scenario: scenario.id, solver, meta: results.get(keyOf(run))!.meta!, rows: (results.get(keyOf(run))!.jsonl ?? '').split('\n').filter(Boolean).map(line => JSON.parse(line)) }))))
