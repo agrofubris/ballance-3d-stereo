@@ -434,6 +434,10 @@ echo Setup cancelled. No external download was started.
 exit /b 2
 
 :check_game
+if "%~2"=="" (
+  echo Usage: Setup-Ballance.bat --check-game "C:\path\to\installed\Ballance"
+  exit /b 1
+)
 set "GAME_INPUT=%~2"
 call :resolve_game_dir
 if errorlevel 1 (
