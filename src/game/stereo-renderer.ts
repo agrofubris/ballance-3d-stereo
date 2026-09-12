@@ -69,8 +69,11 @@ export function computeEyeRenderScale(canvasPixelRatio: number, budgetRatio: num
 // are displaced by half the separation along its local X axis; the
 // zero-parallax plane sits at the convergence distance via an asymmetric
 // frustum shift, never a camera rotation. With separation 0 the shift is 0
-// and each eye reproduces the main projection exactly at full eye aspect
-// (interlaced); SBS/crossview intentionally use a half-width eye aspect.
+// and each eye reproduces the main projection. Eye cameras always use the
+// canvas (mono) aspect: SBS/crossview store that projection in half-width
+// targets, which compresses each eye horizontally for the display's half-SBS
+// expansion. Interlaced targets span the full canvas, so no compression
+// happens there.
 export function offAxisProjectionShift(separation: number, convergence: number, fovDegrees: number, aspect: number): number {
   if (!(separation > 0) || !(convergence > 0) || !(aspect > 0)) return 0
   const halfFovTan = Math.tan(THREE.MathUtils.degToRad(fovDegrees) / 2)
@@ -257,7 +260,10 @@ export class StereoRenderer {
     this.renderer.shadowMap.autoUpdate = false
     if (previousShadowAutoUpdate) this.renderer.shadowMap.needsUpdate = true
     try {
-      const eyeAspect = this.cachedEyeTargetWidth / Math.max(1, this.cachedEyeTargetHeight)
+      // The eye projection must match the mono window aspect. SBS and
+      // crossview then pack that projection into half-width targets, which
+      // is the horizontal compression a half-SBS display expands again.
+      const eyeAspect = this.cachedDrawingBufferWidth / Math.max(1, this.cachedDrawingBufferHeight)
       updateStereoEyeCamera(camera, this.leftCamera, -1, this.settings.separation, this.settings.convergence, eyeAspect)
       updateStereoEyeCamera(camera, this.rightCamera, 1, this.settings.separation, this.settings.convergence, eyeAspect)
 
