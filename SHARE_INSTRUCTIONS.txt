@@ -30,6 +30,19 @@ PLAY IN 3 STEPS
 3. Play at http://127.0.0.1:5173/ in your browser.
    Next time, just double-click Launch-Ballance.bat.
 
+TOOL DOWNLOADS AND CHECKSUMS
+----------------------------
+Every downloaded tool archive is checked with SHA-256 before it is
+extracted; a mismatch deletes the file and stops the wizard.
+- Node, CMake, FFmpeg, LLVM: digests published or signed by their
+  providers (nodejs.org SHASUMS256, Kitware's SHA-256 file, gyan.dev's
+  .sha256 sidecar, LLVM's signed provenance digest).
+- Python and MinGit: exact versioned immutable HTTPS URLs with SHA-256
+  content pins committed by this project (not vendor-published digests).
+The Emscripten toolchain installed later by `emsdk install 6.0.2` stays
+inside emsdk's own package-management trust boundary; this project does
+not independently hash-pin those artifacts.
+
 CONTROLS
 --------
 - Arrow keys: roll. Shift + left/right: turn camera.
