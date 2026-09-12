@@ -1,6 +1,6 @@
 import type { HarnessComparison, HarnessDeterminism, HarnessDivergence, HarnessEventName, HarnessEventTiming, HarnessKnownGap, HarnessKnownGapWindow, HarnessRunResult, HarnessScenario, HarnessSolver, HarnessTickRecord } from './types.ts'
 
-const LIFECYCLE_KEYS = ['finishPhase', 'checkpoint', 'activeSector', 'physicalized', 'riding', 'phase'] as const
+const LIFECYCLE_KEYS = ['finishPhase', 'checkpoint', 'activeSector', 'physicalized', 'phase'] as const
 
 function orientationAngle(a: readonly number[], b: readonly number[]) {
   const dot = Math.abs(a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]! + a[3]! * b[3]!)
@@ -12,6 +12,7 @@ function divergenceAt(rapier: HarnessTickRecord, ivp: HarnessTickRecord): Harnes
   const rv = rapier.ball.linearVelocity, iv = ivp.ball.linearVelocity
   const rw = rapier.ball.angularVelocity, iw = ivp.ball.angularVelocity
   const dx = rp[0] - ip[0], dy = rp[1] - ip[1], dz = rp[2] - ip[2]
+  const lifecycleKey = firstLifecycleMismatch(rapier, ivp) ?? null
   return {
     tick: rapier.tick,
     positionDelta: [dx, dy, dz],
@@ -20,7 +21,8 @@ function divergenceAt(rapier: HarnessTickRecord, ivp: HarnessTickRecord): Harnes
     angularVelocityDelta: [rw[0] - iw[0], rw[1] - iw[1], rw[2] - iw[2]],
     orientationDeltaAngle: orientationAngle(rapier.ball.rotation, ivp.ball.rotation),
     supportIds: [rapier.contacts.supportIds.join('|'), ivp.contacts.supportIds.join('|')],
-    lifecycle: [rapier.lifecycle.finishPhase, ivp.lifecycle.finishPhase],
+    lifecycle: lifecycleKey ? [String(rapier.lifecycle[lifecycleKey]), String(ivp.lifecycle[lifecycleKey])] : null,
+    lifecycleKey,
   }
 }
 
@@ -139,7 +141,7 @@ export function compareTraces(scenario: HarnessScenario, rapier: HarnessRunResul
       }
       if (persistent) firstSupportDivergence = divergence
     }
-    if (!firstLifecycleDivergence && firstLifecycleMismatch(a, b)) firstLifecycleDivergence = divergence
+    if (!firstLifecycleDivergence && divergence.lifecycleKey) firstLifecycleDivergence = divergence
   }
   const rapierEvents = eventMap(rapier.rows), ivpEvents = eventMap(ivp.rows)
   const eventNames = new Set<HarnessEventName>([...rapierEvents.keys(), ...ivpEvents.keys()])

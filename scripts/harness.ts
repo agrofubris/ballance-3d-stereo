@@ -128,7 +128,7 @@ function buildSummary(scenario: string, comparison: ReturnType<typeof compareTra
     if (!comparison.longitudinalParity.applicable) lines.push(`Longitudinal parity: not applicable (${comparison.longitudinalParity.reason})`)
     else lines.push(`Longitudinal parity through tick ${comparison.longitudinalParity.throughTick}: ${comparison.longitudinalParity.passed ? 'PASS' : 'FAIL'} (max |dx| ${formatNumber(comparison.longitudinalParity.maxAbsDeltaX)} <= ${formatNumber(comparison.longitudinalParity.positionTolerance)}, max |dvx| ${formatNumber(comparison.longitudinalParity.maxAbsVelocityDeltaX)} <= ${formatNumber(comparison.longitudinalParity.velocityTolerance)})`)
     lines.push(`Lifecycle parity: ${comparison.firstLifecycleDivergence ? 'DIVERGED' : 'PASS'}`)
-    if (comparison.firstLifecycleDivergence) lines.push(`  first lifecycle difference: tick ${comparison.firstLifecycleDivergence.tick} finishPhase ${comparison.firstLifecycleDivergence.lifecycle?.join(' vs ')}`)
+    if (comparison.firstLifecycleDivergence) lines.push(`  first lifecycle difference: tick ${comparison.firstLifecycleDivergence.tick} ${comparison.firstLifecycleDivergence.lifecycleKey ?? 'lifecycle'} ${comparison.firstLifecycleDivergence.lifecycle?.join(' vs ') ?? ''}`)
     if (comparison.firstSupportFlicker && comparison.firstSupportDivergence?.tick !== comparison.firstSupportFlicker.tick) lines.push(`  first contact-set flicker (ignored): tick ${comparison.firstSupportFlicker.tick}`)
     if (comparison.firstSupportDivergence) lines.push(`  first persistent contact-set difference: tick ${comparison.firstSupportDivergence.tick} (${comparison.firstSupportDivergence.supportIds?.join(' vs ')})`)
     else lines.push('  first persistent contact-set difference: none')

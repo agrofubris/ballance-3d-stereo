@@ -243,7 +243,8 @@ export interface HarnessDivergence {
   angularVelocityDelta: [number, number, number] | null
   orientationDeltaAngle: number | null
   supportIds: [string, string] | null
-  lifecycle: [HarnessFinishPhase, HarnessFinishPhase] | null
+  lifecycle: [string, string] | null
+  lifecycleKey: string | null
 }
 
 export interface HarnessEventTiming {
