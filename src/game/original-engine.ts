@@ -213,6 +213,11 @@ export class OriginalEngine {
     const group = (name: string) => new Set(document.groups.find(g => g.name === name)?.members || [])
     const depthMembers = new Set(ORIGINAL_DEPTH.groups.flatMap(name => [...group(name)]))
     const sector = (id: number) => Number(document.groups.find(g => /^Sector_/.test(g.name) && g.members.includes(id))?.name.slice(-2) || 1)
+    // PE_Levelende members are not in any Sector group; like the native runtime,
+    // the ending assembly belongs to the final reset-point sector.
+    const endingOwners = group('PE_Levelende')
+    const endingSector = group('PR_Resetpoints').size || 1
+    const ownerSector = (id: number) => endingOwners.has(id) ? endingSector : sector(id)
     const woodSounds = group('Sound_RollID_02'), metalSounds = group('Sound_RollID_03')
     const floorStoppers = group('Phys_FloorStopper')
     const objects = new Map<number, THREE.Mesh>()
@@ -220,7 +225,7 @@ export class OriginalEngine {
       // Several original files contain identical transformer instances at the same position.
       if (/^P_Trafo_/.test(object.name) && document.objects.some(o => o.id < object.id && o.name.split('_').slice(0, 3).join('_') === object.name.split('_').slice(0, 3).join('_') && originalPosition(o).distanceTo(originalPosition(object)) < .001)) continue
       const shared = modules.findIndex(m => object.name.toLowerCase().startsWith(m.name + '_'))
-      if (shared >= 0) { this.addModule(object, modules[shared]!.document, moduleMaps[shared]!, sector(object.id), depthMembers.has(object.id)); continue }
+      if (shared >= 0) { this.addModule(object, modules[shared]!.document, moduleMaps[shared]!, ownerSector(object.id), depthMembers.has(object.id)); continue }
       const geometry = originalGeometry(source, object.matrix)
       const mesh = new THREE.Mesh(geometry, source.materials.map(id => materials.get(id) || this.fallbackMaterial))
       mesh.name = object.name; mesh.visible = visible; mesh.receiveShadow = true
@@ -643,7 +648,11 @@ export class OriginalEngine {
       this.scene.backgroundIntensity = fadeFrom + (fadeTo - fadeFrom) * fadeT
       if (this.endingAge * 1000 >= timing.skyFadeMs + (this.state.level === 11 ? timing.lastLevelWaitMs : timing.waitMs)) this.completeCourse()
     }
-    const reachedFinish=this.native?this.native.finish?.stage==='departing':this.finish&&Math.hypot(position.x-this.finish.position.x,position.z-this.finish.position.z)<3&&Math.abs(position.y-this.finish.position.y)<3
+    // A managed ending adapter owns the finish once its sector is active; the
+    // level ends through its boarding/departure path, not the raw trigger.
+    const managedFinish=this.finishAdapters.some(finish=>finish.sector===this.state.checkpoint+1)
+    const reachedFinish=this.native?this.native.finish?.stage==='departing':
+      managedFinish?this.riding:this.finish&&Math.hypot(position.x-this.finish.position.x,position.z-this.finish.position.z)<3&&Math.abs(position.y-this.finish.position.y)<3
     if (reachedFinish && this.state.checkpoint === this.checkpoints.length) {
       this.audio.music.finish();this.audio.sync()
       if(this.native) {
