@@ -11,7 +11,8 @@
     "deploy": "npm run build && node scripts/stage-original-assets.mjs && wrangler deploy",
     "cf-typegen": "wrangler types",
     "harness": "node scripts/harness.ts",
-    "test": "node --test tests/*.test.ts"
+    "test": "node scripts/test-suite.mjs",
+    "test:local": "node --test tests/*.test.ts"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",

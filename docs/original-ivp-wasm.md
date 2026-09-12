@@ -456,7 +456,7 @@ node scripts/verify-ivp-chains.ts .local/ivp-simulation
 node scripts/verify-ivp-actuators.ts .local/ivp-simulation
 node scripts/verify-ivp-lifts.ts .local/ivp-simulation
 node scripts/verify-ivp-contacts.ts .local/ivp-simulation
-BALLANCE_IVP_BUILD=.local/ivp-simulation pnpm test
+BALLANCE_IVP_BUILD=.local/ivp-simulation pnpm test  # maintainer tests; tests/ is not shipped in the public source package
 ```
 
 The build verifies the SDK commit and clean state. It creates a writable local

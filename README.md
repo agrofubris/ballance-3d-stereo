@@ -45,13 +45,23 @@ uses built-in Rapier physics (`?physics=rapier`).
 ```sh
 npm install
 npm run dev
-npm test
 npm run lint
 npm run build
 npm run harness -- --list   # dual-solver Stage 1 harness (docs/harness.md)
 ```
 
-Converted pack lives at `.local/original`; optional IVP runtime at
-`.local/ivp-simulation` via `python3 scripts/build-ivp-simulation.py`.
+The maintainer test suite lives in the untracked local `tests/` directory and
+is not shipped in the public source package; `npm test` prints that notice
+instead of running tests. In a maintainer workspace `npm test` runs the suite,
+and `npm run test:local` does the same explicitly. Public verification is
+`npm run lint` plus `npm run build` (and the harness when the local pack is
+present).
+
+Play and builds need the converted pack at `.local/original`, built by
+`scripts/prepare-original.py` from your own Ballance install. IVP is the
+default solver in both development and production, so a default `npm run dev`
+and `npm run build` also require the separately built runtime at
+`.local/ivp-simulation` (`python3 scripts/build-ivp-simulation.py`, see below);
+`?physics=rapier` selects the comparison adapter without it.
 Details: [import](docs/original-import.md),
 [runtime](docs/original-ivp-wasm.md), [routes](docs/original-native-routes.md).

@@ -81,7 +81,7 @@ Broken-ball center, inertia, burst-offset and wind behavior are documented in
 
 ## Verification
 
-`npm test` covers transform/winding correctness, dynamic-object coordinates, paired-rail grounding and the existing procedural game. When the local pack is present, it also loads all 12 original levels into Rapier and settles a ball at every reset point; that integration test skips explicitly without the pack.
+The maintainer test suite (`npm test` in a maintainer workspace) covers transform/winding correctness, dynamic-object coordinates, paired-rail grounding and the existing procedural game. When the local pack is present, it also loads all 12 original levels into Rapier and settles a ball at every reset point; that integration test skips explicitly without the pack. The suite lives in the untracked `tests/` directory and is not part of the public source package, where `npm test` reports that no tests are shipped.
 
 The in-app browser was used to visually inspect Level 1 and verify a two-second opening roll, checkpoint activation, fall/respawn, stone transformation, collectible trail scoring, the finish/results trigger, next-course navigation and loading Level 12. Audio elements reached playable state and music playback was observed in browser telemetry; this is not a listening-quality assessment. These targeted checks do not constitute full playthroughs.
 
