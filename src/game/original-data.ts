@@ -4,7 +4,7 @@ export interface OriginalObject { id: number; name: string; mesh: number; matrix
 export interface OriginalMesh { id: number; name?: string; positions: number[]; normals: number[]; uvs: number[]; indices: number[]; faceMaterials: number[]; materials: number[] }
 export interface OriginalDocument {
   objects: OriginalObject[]; meshes: OriginalMesh[]
-  materials: { id: number; name: string; emissive: number[]; texture: number; diffuse: number[]; AlphaBlendEnabled: boolean; AlphaTestEnabled: boolean; TwoSidedEnabled: boolean; ZWriteEnabled: boolean }[]
+  materials: { id: number; name: string; emissive: number[]; texture: number; diffuse: number[]; specular?: number[]; specularPower?: number; AlphaBlendEnabled: boolean; AlphaTestEnabled: boolean; TwoSidedEnabled: boolean; ZWriteEnabled: boolean }[]
   textures: { id: number; file: string }[]; groups: { name: string; members: number[] }[]
 }
 /** Invisible collision-only floors still participate in physics. */
@@ -54,7 +54,11 @@ export class OriginalMaterials {
       textures.set(t.id, texture); this.textures.push(texture)
     }))
     return new Map(document.materials.map(m => {
-      const material = new THREE.MeshPhongMaterial({ map: textures.get(m.texture) ?? null, color: new THREE.Color(m.diffuse[0], m.diffuse[1], m.diffuse[2]), emissive: new THREE.Color(m.emissive[0], m.emissive[1], m.emissive[2]), emissiveMap: textures.get(m.texture) ?? null, shininess: 8, specular: 0x222222, transparent: m.AlphaBlendEnabled, alphaTest: m.AlphaTestEnabled ? 0.4 : 0, opacity: m.diffuse[3], depthWrite: m.ZWriteEnabled, side: m.TwoSidedEnabled ? THREE.DoubleSide : THREE.FrontSide })
+      const powered = typeof m.specularPower === 'number'
+      const specular = !powered ? new THREE.Color(0x222222)
+        : m.specularPower! > 0 && m.specular ? new THREE.Color(m.specular[0], m.specular[1], m.specular[2])
+        : new THREE.Color(0x000000)
+      const material = new THREE.MeshPhongMaterial({ map: textures.get(m.texture) ?? null, color: new THREE.Color(m.diffuse[0], m.diffuse[1], m.diffuse[2]), emissive: new THREE.Color(m.emissive[0], m.emissive[1], m.emissive[2]), emissiveMap: textures.get(m.texture) ?? null, shininess: powered && m.specularPower! > 0 ? m.specularPower! : 8, specular, transparent: m.AlphaBlendEnabled, alphaTest: m.AlphaTestEnabled ? 0.4 : 0, opacity: m.diffuse[3], depthWrite: m.ZWriteEnabled, side: m.TwoSidedEnabled ? THREE.DoubleSide : THREE.FrontSide })
       material.name = m.name
       this.materials.push(material); return [m.id, material]
     }))

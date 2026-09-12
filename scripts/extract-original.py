@@ -91,6 +91,7 @@ def main():
             entry['textureMagMode'] = value('BMMaterial_GetTextureMagMode', mid)
             entry['textureAddressMode'] = value('BMMaterial_GetTextureAddressMode', mid)
             entry['textureBorderColor'] = list(get('BMMaterial_GetTextureBorderColor', mid, Color).values)
+            entry['specularPower'] = value('BMMaterial_GetSpecularPower', mid, C.c_float)
             document['materials'].append(entry)
         for mid in ids('Mesh'):
             vc, fc = value('BMMesh_GetVertexCount', mid), value('BMMesh_GetFaceCount', mid)
