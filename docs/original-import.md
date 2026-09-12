@@ -70,6 +70,8 @@ python3 scripts/prepare-original.py \
 
 This runs `extract-original.py`, exports the levels and shared entities to JSON, writes PNG textures, converts sky BMPs to JPEG and selected WAVs to Ogg, and generates `.local/original/manifest.json`. Each level JSON records the SHA-256 of its source NMO. Windows/Linux BMap library names differ; pass the correct library path.
 
+The material records also carry the original alpha test. `alphaRef` is the raw `CKMaterial` reference byte (compared as `alphaRef/255`) and `alphaFunc` is the D3D8 comparison code (`1` NEVER, `2` LESS, `3` EQUAL, `4` LESSEQUAL, `5` GREATER, `6` NOTEQUAL, `7` GREATEREQUAL, `8` ALWAYS). Both come from BMap's `BMMaterial_GetAlphaRef` and `BMMaterial_GetAlphaFunc`, which expose `CKMaterial::m_AlphaRef` (`CKBYTE`) and `m_AlphaFunc` (`VxMath::VXCMPFUNC`); the enum values match D3D8's `D3DCMP_*` codes. Every alpha-tested Ballance material uses `GREATER` with `alphaRef` 1, which the runtime reproduces with a strict greater-than comparison (Three's stock `alphaTest` also passes at equality).
+
 The converter translates no scripts. The renderer changes Virtools' left-handed coordinates to Three.js right-handed coordinates, reverses winding, flips V and scales coordinates by 0.25. Ball radius is therefore 0.5 world units.
 
 The imported world matrices do not preserve parent relationships: the current

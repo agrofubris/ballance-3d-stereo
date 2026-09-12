@@ -84,6 +84,11 @@ def main():
                 entry[field.lower()] = list(get('BMMaterial_Get' + field, mid, Color).values)
             for field in ['AlphaBlendEnabled', 'AlphaTestEnabled', 'TwoSidedEnabled', 'ZWriteEnabled']:
                 entry[field] = value('BMMaterial_Get' + field, mid, C.c_bool)
+            # Original CKMaterial alpha-test state: AlphaRef is the raw CKBYTE
+            # reference (compared as alphaRef/255) and AlphaFunc is the D3D8
+            # D3DCMP comparison code (1..8) used by the original renderer.
+            entry['alphaRef'] = value('BMMaterial_GetAlphaRef', mid, C.c_ubyte)
+            entry['alphaFunc'] = value('BMMaterial_GetAlphaFunc', mid)
             entry['sourceBlend'] = value('BMMaterial_GetSourceBlend', mid)
             entry['destBlend'] = value('BMMaterial_GetDestBlend', mid)
             entry['textureBlendMode'] = value('BMMaterial_GetTextureBlendMode', mid)
