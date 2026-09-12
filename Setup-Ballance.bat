@@ -175,7 +175,7 @@ exit /b 0
 
 :ensure_ffmpeg
 set "FFMPEG_EXE="
-set "FFMPEG_ROOT=%TOOLS%\ffmpeg"
+set "FFMPEG_ROOT=%TOOLS%\ffmpeg-%FFMPEG_VERSION%"
 for /r "%FFMPEG_ROOT%" %%F in (ffmpeg.exe) do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
 if defined FFMPEG_EXE exit /b 0
 set "FFMPEG_ZIP=%DOWNLOADS%\ffmpeg-%FFMPEG_VERSION%-essentials_build.zip"
