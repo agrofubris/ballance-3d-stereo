@@ -97,7 +97,9 @@ backend exposes them). `--out DIR` overrides the output root and `--timeout`
 sets the seconds allowed for the whole browser batch.
 
 Initial suite: `stage1_spawn`, `stage1_stone_crown`, `stage1_wood_finish`,
-`stage1_finish_reset`.
+`stage1_finish_reset`. `stage1_finish_ride` stages the rider directly on the
+supported departing platform with zero input and requires the whole recovered
+ride (departure, persistent support, survival, completion) on both backends.
 
 ## Output
 

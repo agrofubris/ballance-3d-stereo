@@ -125,6 +125,9 @@ export interface HarnessLifecycleSample {
   finishParts: number
   finishModules: number
   platformPosition: [number, number, number] | null
+  platformRotation: [number, number, number, number] | null
+  platformLinearVelocity: [number, number, number] | null
+  platformAngularVelocity: [number, number, number] | null
   platformDistanceFromOrigin: number | null
   stalePlatformSupport: boolean
   platformColliders: number | null

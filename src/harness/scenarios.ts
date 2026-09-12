@@ -4,6 +4,13 @@ const BRIDGE_START_ORIGINAL: [number, number, number] = [Number('707.78594970703
 const CROWN_START_ORIGINAL: [number, number, number] = [Number('707.7859497070312'), Number('-11.6569'), Number('-873.7407857895529')]
 const BRIDGE_START_YAW = -Math.PI / 2
 const CHECKPOINT_4_RESET_ORIGINAL: [number, number, number] = [Number('341.9595031738281'), Number('-4.072678089141846'), Number('-830.5913696289062')]
+// Authored PE_Balloon_Platform origin in level 1, plus the ball's stable
+// platform-local rest offset during the native departing ride (both measured
+// from the recovered authored assembly and the IVP ride trace). Staging there
+// puts the rider on the supported platform before any simulation tick.
+const PLATFORM_ORIGIN_ORIGINAL: [number, number, number] = [Number('731.785949707'), Number('-13.387001991'), Number('-873.740783691')]
+const PLATFORM_RIDE_OFFSET_ORIGINAL: [number, number, number] = [Number('-0.7239567358778913'), Number('0.10878013170499834'), Number('0.4518316494368264')]
+const PLATFORM_RIDE_START_ORIGINAL: [number, number, number] = PLATFORM_ORIGIN_ORIGINAL.map((value, axis) => value + PLATFORM_RIDE_OFFSET_ORIGINAL[axis]!) as [number, number, number]
 
 export const HARNESS_SCENARIOS: HarnessScenario[] = [
   {
@@ -149,6 +156,43 @@ export const HARNESS_SCENARIOS: HarnessScenario[] = [
       { kind: 'field', path: 'ball.position[0]', op: 'approx', value: CHECKPOINT_4_RESET_ORIGINAL[0] * 0.25, tolerance: 5e-3, from: { event: 'finish.wake', offset: 121 }, to: { event: 'finish.wake', offset: 122 } },
       { kind: 'field', path: 'ball.position[1]', op: 'approx', value: CHECKPOINT_4_RESET_ORIGINAL[1] * 0.25, tolerance: 5e-3, from: { event: 'finish.wake', offset: 121 }, to: { event: 'finish.wake', offset: 122 } },
       { kind: 'field', path: 'ball.position[2]', op: 'approx', value: -CHECKPOINT_4_RESET_ORIGINAL[2] * 0.25, tolerance: 5e-3, from: { event: 'finish.wake', offset: 121 }, to: { event: 'finish.wake', offset: 122 } },
+    ],
+  },
+  {
+    id: 'stage1_finish_ride',
+    level: 0,
+    start: {
+      kind: 'inject',
+      sector: 4,
+      material: 'wood',
+      positionOriginal: PLATFORM_RIDE_START_ORIGINAL,
+      yaw: BRIDGE_START_YAW,
+    },
+    maxTicks: 1900,
+    stopOnComplete: true,
+    input: [],
+    compare: {
+      startTick: 9,
+      poseTolerance: 1e-3,
+    },
+    assertions: [
+      { kind: 'event', event: 'finish.wake', from: 0, to: 30, note: 'the staged supported rider trips the recovered approach proximity immediately' },
+      { kind: 'event', event: 'finish.boarding', from: 0, to: 30, note: 'boarding fires from the supported platform-local state' },
+      { kind: 'event', event: 'finish.departure.begin', from: 0, to: 30, note: 'the recovered departure force launches the assembly' },
+      { kind: 'phase', phase: 'departing', from: { event: 'finish.boarding', offset: 2 }, to: { event: 'finish.boarding', offset: 120 }, note: 'the assembly stays in the departing stage through the ride' },
+      { kind: 'field', path: 'lifecycle.ending', op: 'eq', value: true, from: { event: 'finish.boarding', offset: 2 }, to: { event: 'finish.boarding', offset: 120 }, note: 'the ending presentation owns the ride on both backends' },
+      { kind: 'eventAbsent', event: 'ball.dead', note: 'the rider must survive the whole departing ride; the known Rapier gap drops it into Quader03' },
+      { kind: 'event', event: 'level.complete', from: 1500, to: 1899, note: 'the recovered ending presentation completes on both backends' },
+      { kind: 'field', path: 'contacts.grounded', op: 'eq', value: true, from: { event: 'finish.boarding', offset: 60 }, to: { event: 'finish.boarding', offset: 160 }, note: 'persistent support during the early ride' },
+      { kind: 'field', path: 'contacts.supportIds', op: 'someMatch', value: 'pe_balloon.Platform', from: { event: 'finish.boarding', offset: 60 }, to: { event: 'finish.boarding', offset: 160 }, note: 'the early ride support is the managed platform' },
+      { kind: 'field', path: 'contacts.grounded', op: 'eq', value: true, from: { event: 'finish.boarding', offset: 700 }, to: { event: 'finish.boarding', offset: 800 }, note: 'persistent support late in the ride' },
+      { kind: 'field', path: 'contacts.supportIds', op: 'someMatch', value: 'pe_balloon.Platform', from: { event: 'finish.boarding', offset: 700 }, to: { event: 'finish.boarding', offset: 800 } },
+      { kind: 'field', path: 'contacts.supportIds', op: 'noneMatch', value: 'Ballon|Seil|Box_slide', note: 'balloons, ropes, and the slide stay control-only' },
+      { kind: 'field', path: 'lifecycle.platformDistanceFromOrigin', op: 'gte', value: 2, from: { event: 'finish.boarding', offset: 700 }, to: { event: 'finish.boarding', offset: 800 }, note: 'the platform has left its origin mid-ride' },
+      { kind: 'field', path: 'lifecycle.platformLinearVelocity[0]', op: 'gt', value: 0.1, from: { event: 'finish.boarding', offset: 700 }, to: { event: 'finish.boarding', offset: 800 }, note: 'the platform moves after wake/departure' },
+      { kind: 'field', path: 'lifecycle.platformPosition[1]', op: 'gte', value: -4.5, from: { event: 'finish.wake', offset: 0 }, to: { event: 'level.complete', offset: 0 }, note: 'platform vertical motion stays inside the native sag/lift envelope' },
+      { kind: 'field', path: 'lifecycle.platformPosition[1]', op: 'lte', value: -2.4, from: { event: 'finish.wake', offset: 0 }, to: { event: 'level.complete', offset: 0 } },
+      { kind: 'field', path: 'lifecycle.finishParts', op: 'equalAtTicks', ticks: [1, { event: 'finish.boarding', offset: 0 }, { event: 'finish.boarding', offset: 120 }], note: 'managed finish bodies are neither duplicated nor leaked during the ride' },
     ],
   },
 ]

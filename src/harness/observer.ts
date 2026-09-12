@@ -24,6 +24,9 @@ type FinishState = {
   parts: number
   modules: number
   platform: THREE.Vector3 | null
+  platformRotation: [number, number, number, number] | null
+  platformLinearVelocity: [number, number, number] | null
+  platformAngularVelocity: [number, number, number] | null
   colliders: number | null
 }
 
@@ -92,6 +95,9 @@ abstract class BaseObserver implements HarnessObserver {
       finishParts: finish.parts,
       finishModules: finish.modules,
       platformPosition: finish.platform ? finish.platform.toArray() as [number, number, number] : null,
+      platformRotation: finish.platformRotation,
+      platformLinearVelocity: finish.platformLinearVelocity,
+      platformAngularVelocity: finish.platformAngularVelocity,
       platformDistanceFromOrigin: platformDistance,
       stalePlatformSupport: stale,
       platformColliders: finish.colliders,
@@ -122,6 +128,8 @@ abstract class BaseObserver implements HarnessObserver {
 
 const emptyContacts = (): ContactObservation => ({ sample: { grounded: false, supportIds: [], contactCount: 0 }, platformSupport: null })
 
+const emptyFinishState = (modules: number): FinishState => ({ phase: 'none', active: false, parts: 0, modules, platform: null, platformRotation: null, platformLinearVelocity: null, platformAngularVelocity: null, colliders: null })
+
 export class RapierHarnessObserver extends BaseObserver {
   readonly solver = 'rapier' as const
   readonly capabilities: HarnessCapabilities = { velocityInjection: true, contactManifoldDetail: true, supportIdentity: true, backendBodyCount: true }
@@ -141,15 +149,22 @@ export class RapierHarnessObserver extends BaseObserver {
   protected finishState(): FinishState {
     const engine = this.engine
     const adapter = engine.finishAdapters.find(item => item.sector === engine.state.checkpoint + 1)
-    if (!adapter) return { phase: 'none', active: false, parts: 0, modules: engine.finishAdapters.length, platform: null, colliders: null }
+    if (!adapter) return emptyFinishState(engine.finishAdapters.length)
     const platform = adapter.parts.find(part => part.name === 'PE_Balloon_Platform')
+    if (!platform) return emptyFinishState(engine.finishAdapters.length)
+    const rotation = platform.body.rotation()
+    const linearVelocity = platform.body.linvel()
+    const angularVelocity = platform.body.angvel()
     return {
       phase: adapter.stage,
       active: adapter.active,
       parts: adapter.parts.length,
       modules: engine.finishAdapters.length,
-      platform: platform ? new THREE.Vector3().copy(platform.body.translation()) : null,
-      colliders: platform ? platform.body.numColliders() : null,
+      platform: new THREE.Vector3().copy(platform.body.translation()),
+      platformRotation: [rotation.x, rotation.y, rotation.z, rotation.w],
+      platformLinearVelocity: [linearVelocity.x, linearVelocity.y, linearVelocity.z],
+      platformAngularVelocity: [angularVelocity.x, angularVelocity.y, angularVelocity.z],
+      colliders: platform.body.numColliders(),
     }
   }
   diagnostics(): string[] {
@@ -238,16 +253,22 @@ export class IvpHarnessObserver extends BaseObserver {
   protected finishState(): FinishState {
     const engine = this.engine
     const finish = engine.native?.finish
-    if (!finish) return { phase: 'none', active: false, parts: 0, modules: 0, platform: null, colliders: null }
+    if (!finish) return emptyFinishState(0)
     const platform = finish.parts.get('PE_Balloon_Platform')
     const state = platform === undefined ? null : engine.native!.world.state(platform)
     const recovered = finishData.parts.find(part => part.target === 'PE_Balloon_Platform')
+    const rotation = state ? new THREE.Quaternion(-state[3]!, -state[4]!, state[5]!, state[6]!) : null
+    const linearVelocity = state ? [state[7]! * .5, state[8]! * .5, -state[9]! * .5] as [number, number, number] : null
+    const angularVelocity = state ? [state[10]! * .5, state[11]! * .5, -state[12]! * .5] as [number, number, number] : null
     return {
       phase: finish.stage,
       active: true,
       parts: finish.parts.size,
       modules: 1,
       platform: state ? new THREE.Vector3(state[0]! * 0.25, state[1]! * 0.25, -state[2]! * 0.25) : null,
+      platformRotation: rotation ? rotation.toArray() as [number, number, number, number] : null,
+      platformLinearVelocity: linearVelocity,
+      platformAngularVelocity: angularVelocity,
       colliders: platform === undefined ? null : recovered?.hulls?.length ?? 1,
     }
   }

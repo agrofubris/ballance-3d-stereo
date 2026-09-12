@@ -32,7 +32,7 @@ function deriveEvents(previous: HarnessTickRecord, current: HarnessTickRecord): 
   if (!p.spawnUnveiled && c.spawnUnveiled) events.push('spawn.unveil')
   if (!p.physicalized && c.physicalized) events.push('ball.physicalized')
   if (c.checkpoint > p.checkpoint) events.push('checkpoint.enter', 'sector.activate')
-  if (p.finishPhase === 'dormant' && c.finishPhase === 'ready') events.push('finish.wake')
+  if (p.finishPhase === 'dormant' && c.finishPhase !== 'dormant' && c.finishPhase !== 'none') events.push('finish.wake')
   if (p.finishPhase !== 'departing' && c.finishPhase === 'departing') events.push('finish.boarding')
   if (!p.ending && c.ending) events.push('finish.departure.begin')
   if (p.phase !== 'won' && c.phase === 'won') events.push('finish.departure.end', 'level.complete')
