@@ -4,7 +4,7 @@ export interface OriginalObject { id: number; name: string; mesh: number; matrix
 export interface OriginalMesh { id: number; name?: string; positions: number[]; normals: number[]; uvs: number[]; indices: number[]; faceMaterials: number[]; materials: number[] }
 export interface OriginalDocument {
   objects: OriginalObject[]; meshes: OriginalMesh[]
-  materials: { id: number; name: string; emissive: number[]; texture: number; diffuse: number[]; specular?: number[]; specularPower?: number; AlphaBlendEnabled: boolean; AlphaTestEnabled: boolean; TwoSidedEnabled: boolean; ZWriteEnabled: boolean }[]
+  materials: { id: number; name: string; emissive: number[]; texture: number; diffuse: number[]; specular?: number[]; specularPower?: number; AlphaBlendEnabled: boolean; AlphaTestEnabled: boolean; TwoSidedEnabled: boolean; ZWriteEnabled: boolean; alphaRef?: number; alphaFunc?: number }[]
   textures: { id: number; file: string }[]; groups: { name: string; members: number[] }[]
 }
 /** Invisible collision-only floors still participate in physics. */
@@ -44,6 +44,35 @@ export async function loadOriginal(name: string): Promise<OriginalDocument> {
   if (!response.ok) throw new Error(`Original asset ${name} is unavailable (${response.status})`)
   return response.json()
 }
+/** D3D8 comparison codes stored by CKMaterial's AlphaFunc, as exported by BMap. */
+const ALPHA_FUNC_GREATER = 5
+const ALPHA_FUNC_ALWAYS = 8
+/** Pre-recovery converted packs have no alphaRef/alphaFunc and used this threshold. */
+const LEGACY_ALPHA_TEST = 0.4
+/**
+ * Recovered alpha test in Three terms: reference is alphaRef/255 and the stock
+ * test passes at equality (discard when alpha < alphaTest). Packs without the
+ * recovered fields keep the legacy 0.4 threshold. GREATER needs a strict
+ * comparison, which configureRecoveredAlphaTest applies to the shader chunk.
+ */
+export function recoveredAlphaTest(m: OriginalDocument['materials'][number]) {
+  if (!m.AlphaTestEnabled) return 0
+  if (typeof m.alphaRef !== 'number' || typeof m.alphaFunc !== 'number') return LEGACY_ALPHA_TEST
+  if (m.alphaFunc === ALPHA_FUNC_ALWAYS) return 0
+  if (m.alphaFunc === ALPHA_FUNC_GREATER) return m.alphaRef / 255
+  return LEGACY_ALPHA_TEST
+}
+export function configureRecoveredAlphaTest(material: THREE.MeshPhongMaterial, m: OriginalDocument['materials'][number]) {
+  const alphaTest = recoveredAlphaTest(m)
+  material.alphaTest = alphaTest
+  if (alphaTest > 0 && m.alphaFunc === ALPHA_FUNC_GREATER) material.onBeforeCompile = shader => {
+    // D3D's GREATER passes strictly above AlphaRef, while Three's stock test
+    // discards only when alpha < alphaTest (pass at equality). Rewrite the
+    // comparison so filtered alpha stays exact instead of biasing AlphaRef.
+    shader.fragmentShader = shader.fragmentShader.replace('if ( diffuseColor.a < alphaTest ) discard;', 'if ( diffuseColor.a <= alphaTest ) discard;')
+  }
+  return alphaTest
+}
 export class OriginalMaterials {
   textures: THREE.Texture[] = []; materials: THREE.MeshPhongMaterial[] = []
   async create(document: OriginalDocument) {
@@ -58,7 +87,8 @@ export class OriginalMaterials {
       const specular = !powered ? new THREE.Color(0x222222)
         : m.specularPower! > 0 && m.specular ? new THREE.Color(m.specular[0], m.specular[1], m.specular[2])
         : new THREE.Color(0x000000)
-      const material = new THREE.MeshPhongMaterial({ map: textures.get(m.texture) ?? null, color: new THREE.Color(m.diffuse[0], m.diffuse[1], m.diffuse[2]), emissive: new THREE.Color(m.emissive[0], m.emissive[1], m.emissive[2]), emissiveMap: textures.get(m.texture) ?? null, shininess: powered && m.specularPower! > 0 ? m.specularPower! : 8, specular, transparent: m.AlphaBlendEnabled, alphaTest: m.AlphaTestEnabled ? 0.4 : 0, opacity: m.diffuse[3], depthWrite: m.ZWriteEnabled, side: m.TwoSidedEnabled ? THREE.DoubleSide : THREE.FrontSide })
+      const material = new THREE.MeshPhongMaterial({ map: textures.get(m.texture) ?? null, color: new THREE.Color(m.diffuse[0], m.diffuse[1], m.diffuse[2]), emissive: new THREE.Color(m.emissive[0], m.emissive[1], m.emissive[2]), emissiveMap: textures.get(m.texture) ?? null, shininess: powered && m.specularPower! > 0 ? m.specularPower! : 8, specular, transparent: m.AlphaBlendEnabled, opacity: m.diffuse[3], depthWrite: m.ZWriteEnabled, side: m.TwoSidedEnabled ? THREE.DoubleSide : THREE.FrontSide })
+      configureRecoveredAlphaTest(material, m)
       material.name = m.name
       this.materials.push(material); return [m.id, material]
     }))
