@@ -11,9 +11,10 @@ responsive elements instead. The rendered interface therefore uses browser text,
 CSS beveled metal frames, gold edges and a red selected state, with flow layout,
 wrapping, scrollable short screens and a two-column level selector. It does not
 render stretched bitmap text or use the original screen rectangles. The menu
-background uses the converted MenuLevel.nmo scene. DomeShadow and
-Trafo_Shadow_Big are converted directly from their TGA files to preserve alpha
-lost by BMap's image export. Preparation includes this scene and menu sounds.
+background uses the converted MenuLevel.nmo scene. DomeShadow,
+Trafo_Shadow_Big and the lantern's Laterne_Schatten shadow decal are converted
+directly from their TGA files to preserve alpha lost by BMap's image export.
+Preparation includes this scene and menu sounds.
 
 Desktop defaults are Up/Down/Left/Right for rolling, left Shift plus left/right
 for camera rotation, Space for overview, and Escape for pause/back. Key rebinding
