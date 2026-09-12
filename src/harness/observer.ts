@@ -56,6 +56,7 @@ abstract class BaseObserver implements HarnessObserver {
   protected abstract contacts(): ContactObservation
   protected abstract angularVelocity(): [number, number, number]
   protected abstract backendBodies(): number
+  protected abstract colliderEnabled(): boolean
   sample(tick: number, input: HarnessInputState): HarnessTickRecord {
     const engine = this.engine
     const body = engine.body
@@ -66,11 +67,21 @@ abstract class BaseObserver implements HarnessObserver {
     const connection = this.contacts()
     const platformDistance = finish.platform && this.platformOrigin ? finish.platform.distanceTo(this.platformOrigin) : null
     const stale = connection.platformSupport === 'foreign'
+    const transformation = engine.transformation
     const lifecycle: HarnessLifecycleSample = {
       phase: engine.state.phase,
       activeSector: engine.state.checkpoint + 1,
       checkpoint: engine.state.checkpoint,
+      lives: engine.state.lives,
       physicalized: body?.isEnabled() ?? false,
+      colliderEnabled: this.colliderEnabled(),
+      transformation: transformation ? {
+        active: transformation.active,
+        age: transformation.age,
+        target: transformation.kind,
+        committed: transformation.committed,
+        shattered: transformation.shattered,
+      } : null,
       spawnActive: engine.spawnEffect?.active ?? false,
       spawnUnveiled: engine.spawnEffect?.unveiled ?? false,
       riding: engine.riding,
@@ -160,6 +171,10 @@ export class RapierHarnessObserver extends BaseObserver {
   protected backendBodies(): number {
     return this.engine.physics?.bodies.len() ?? 0
   }
+  protected colliderEnabled(): boolean {
+    const body = this.engine.body
+    return !!body && body.numColliders() > 0 && body.collider(0).isEnabled()
+  }
   private platformColliderHandles() {
     const handles = new Set<number>()
     for (const adapter of this.engine.finishAdapters) {
@@ -247,6 +262,9 @@ export class IvpHarnessObserver extends BaseObserver {
     const runtime = this.engine.native
     if (!runtime) return 0
     return runtime.parts.length + (runtime.finish?.parts.size ?? 0)
+  }
+  protected colliderEnabled(): boolean {
+    return this.engine.native?.player.body !== undefined
   }
   protected contacts(): ContactObservation {
     const runtime = this.engine.native

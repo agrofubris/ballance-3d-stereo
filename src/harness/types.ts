@@ -76,11 +76,17 @@ export type HarnessEventName =
   | 'ball.physicalized'
   | 'checkpoint.enter'
   | 'sector.activate'
+  | 'transform.capture'
+  | 'transform.explode'
+  | 'transform.material.change'
+  | 'transform.release'
+  | 'ball.dead'
+  | 'respawn.begin'
+  | 'respawn.complete'
   | 'finish.wake'
   | 'finish.boarding'
   | 'finish.departure.begin'
   | 'finish.departure.end'
-  | 'ball.dead'
   | 'level.complete'
 
 export type HarnessFinishPhase = 'none' | 'dormant' | 'ready' | 'departing'
@@ -93,11 +99,22 @@ export interface HarnessBallSample {
   type: Material
 }
 
+export interface HarnessTransformationSample {
+  active: boolean
+  age: number
+  target: string
+  committed: boolean
+  shattered: boolean
+}
+
 export interface HarnessLifecycleSample {
   phase: string
   activeSector: number
   checkpoint: number
+  lives: number
   physicalized: boolean
+  colliderEnabled: boolean
+  transformation: HarnessTransformationSample | null
   spawnActive: boolean
   spawnUnveiled: boolean
   riding: boolean

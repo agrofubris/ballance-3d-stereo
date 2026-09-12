@@ -36,7 +36,12 @@ function deriveEvents(previous: HarnessTickRecord, current: HarnessTickRecord): 
   if (p.finishPhase !== 'departing' && c.finishPhase === 'departing') events.push('finish.boarding')
   if (!p.ending && c.ending) events.push('finish.departure.begin')
   if (p.phase !== 'won' && c.phase === 'won') events.push('finish.departure.end', 'level.complete')
-  if (p.respawnStage === 'idle' && c.respawnStage !== 'idle') events.push('ball.dead')
+  if (!p.transformation?.active && c.transformation?.active) events.push('transform.capture')
+  if (!p.transformation?.shattered && c.transformation?.shattered) events.push('transform.explode')
+  if (previous.ball.type !== current.ball.type) events.push('transform.material.change')
+  if (!p.transformation?.committed && c.transformation?.committed) events.push('transform.release')
+  if (p.respawnStage === 'idle' && c.respawnStage !== 'idle') events.push('ball.dead', 'respawn.begin')
+  if (p.respawnStage !== 'idle' && c.respawnStage === 'idle') events.push('respawn.complete')
   return events
 }
 

@@ -38,3 +38,14 @@ managed ending takes precedence over the raw level-end proximity shortcut, so
 Rapier wakes, boards, rides, departs and completes through the same lifecycle
 as native. Verified by `stage1_wood_finish` and `stage1_finish_reset` on both
 solvers.
+
+## Stage 1 Rapier finish ride fall
+
+The Rapier wooden ball can slip off the departing `PE_Balloon` platform while
+the native ball stays supported; this remains the documented "falls at speed"
+ride boundary. With the recovered `DepthTestCubes` death volumes now wired
+into the Rapier path, such a fall correctly ends the run in the authored
+volume (`Quader03`, top around original Y −32) instead of falling unchecked.
+`stage1_wood_finish` therefore validates wake/boarding/departure, platform
+support and managed-body stability on both solvers, while ride completion is
+asserted on the native runtime only.
