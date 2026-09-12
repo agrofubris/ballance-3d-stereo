@@ -45,6 +45,7 @@ import {OriginalCheckpoint} from './original-checkpoint'
 import checkpointData from './original-checkpoint-data.json'
 import {OriginalRespawn} from './original-respawn'
 import {OriginalSpawnEffect, SPAWN_DURATION} from './original-spawn'
+import {OriginalSkyLayer, originalSkyLetter} from './original-sky'
 import {batchOriginalScene} from './original-render-batching'
 import {OriginalRenderBudget} from './original-render-budget'
 import {StereoRenderer} from './stereo-renderer'
@@ -136,6 +137,7 @@ export class OriginalEngine {
   checkpointMaterial: Material = 'wood'
   shadowLight = new THREE.DirectionalLight(0xffffff, 1.6)
   sky?: THREE.CubeTexture
+  skyLayer?: OriginalSkyLayer
   host: HTMLElement
   onState: (state: GameState) => void
   constructor(host: HTMLElement, onState: (state: GameState) => void, originalSolver=false) {
@@ -208,7 +210,7 @@ export class OriginalEngine {
     const modules = await Promise.all([...new Set(sharedNames)].map(async name => ({ name, document: await loadOriginal(name), resources: new OriginalMaterials() })))
     const moduleMaps = await Promise.all(modules.map(m => m.resources.create(m.document)))
     const resource = new OriginalMaterials(), materials = await resource.create(document)
-    const letter = String.fromCharCode(65 + index)
+    const letter = originalSkyLetter(index)
     // Original game has five sky faces. Reuse the downward cloud face above, beyond normal camera view.
     const sky = await new THREE.CubeTextureLoader().loadAsync(['Right', 'Left', 'Down', 'Down', 'Front', 'Back'].map(face => `/original/sky/Sky_${letter}_${face}.jpg`))
     sky.colorSpace = THREE.SRGBColorSpace
@@ -243,6 +245,11 @@ export class OriginalEngine {
         this.colliderNames.set(collider.handle, object.name)
       }
     }
+    // SkyLayer is excluded from the generic pass (no collision, runtime state
+    // only): rebuild it with its recovered scroll and gate.
+    this.skyLayer = new OriginalSkyLayer(document, materials, index)
+    this.skyLayer.setGate(true)
+    this.worldGroup.add(this.skyLayer.group)
     const triggers = (name: string): Trigger[] => document.objects.filter(o => group(name).has(o.id)).sort((a, b) => a.name.localeCompare(b.name)).map(object => ({ object, position: originalPosition(object), mesh: objects.get(object.id), sector: sector(object.id) }))
     this.resets = triggers('PR_Resetpoints').map(t => t.object)
     this.checkpoints = triggers('PC_Checkpoints'); this.finish = triggers('PE_Levelende')[0]
@@ -611,6 +618,7 @@ export class OriginalEngine {
   }
   step(dt: number) {
     if (!this.physics || !this.body) return
+    this.skyLayer?.step(dt)
     this.audio.stepMusic(dt)
     if(this.respawnSequence.active){this.stepRespawn(dt);return}
     if(this.spawnAge!==undefined){this.stepSpawn(dt);return}
@@ -633,6 +641,7 @@ export class OriginalEngine {
       const fadeT=Math.min(1,(this.endingAge*1000)/timing.skyFadeMs)
       const fadeFrom=timing.skyFade.fadeFrom[0]!,fadeTo=timing.skyFade.fadeTo[0]!
       this.scene.backgroundIntensity=fadeFrom+(fadeTo-fadeFrom)*fadeT
+      this.skyLayer?.setFade(fadeT)
       if(this.endingAge*1000>=timing.skyFadeMs+(this.state.level===11?timing.lastLevelWaitMs:timing.waitMs))this.completeCourse()
       return
     }
@@ -725,6 +734,7 @@ export class OriginalEngine {
       const fadeT = Math.min(1, (this.endingAge * 1000) / timing.skyFadeMs)
       const fadeFrom = timing.skyFade.fadeFrom[0]!, fadeTo = timing.skyFade.fadeTo[0]!
       this.scene.backgroundIntensity = fadeFrom + (fadeTo - fadeFrom) * fadeT
+      this.skyLayer?.setFade(fadeT)
       if (this.endingAge * 1000 >= timing.skyFadeMs + (this.state.level === 11 ? timing.lastLevelWaitMs : timing.waitMs)) this.completeCourse()
     }
     // A managed ending adapter owns the finish once its sector is active; the
@@ -928,7 +938,7 @@ export class OriginalEngine {
     this.body = undefined; this.surfaceSounds.clear(); this.physics?.free(); this.physics = undefined
     this.pickups.forEach(p => p.visual?.dispose())
     this.worldGroup.traverse(object => { if (object instanceof THREE.Mesh) { object.geometry.dispose(); if (object.material instanceof THREE.MeshBasicMaterial) object.material.dispose() } })
-    this.worldGroup.clear(); this.flames.forEach(f => f.dispose()); this.flames = []; this.checkpointFlames.clear();this.checkpointScripts=[];this.checkpointTrigger=undefined; this.moduleMaterials.forEach(m => m.dispose()); this.moduleMaterials = []; this.materials.dispose(); this.sky?.dispose(); this.dynamics = []; this.pushers = []; this.hinges = []; this.pickups = []; this.checkpoints = []; this.pads = []
+    this.worldGroup.clear(); this.flames.forEach(f => f.dispose()); this.flames = []; this.checkpointFlames.clear();this.checkpointScripts=[];this.checkpointTrigger=undefined; this.moduleMaterials.forEach(m => m.dispose()); this.moduleMaterials = []; this.skyLayer?.dispose(); this.skyLayer = undefined; this.materials.dispose(); this.sky?.dispose(); this.dynamics = []; this.pushers = []; this.hinges = []; this.pickups = []; this.checkpoints = []; this.pads = []
   }
   private moveNativeCaptured() {
     if(!this.native||!this.body||this.native.player.body!==undefined) return

@@ -1,0 +1,278 @@
+{
+  "source": "Levelinit.nmo, Gameplay.nmo",
+  "populate": {
+    "array": "Skytextures",
+    "binding": "Gameplay_Init resolves the object named Skytextures into the Gameplay_Sky local Skytextures Array",
+    "script": "Load Sky-Textures",
+    "pathPrefix": "Textures\\",
+    "namePrefix": "Sky",
+    "skyColumn": 3,
+    "qualityColumns": [
+      3,
+      13
+    ]
+  },
+  "dome": {
+    "arrayColumns": [
+      "Back",
+      "Right",
+      "Front",
+      "Left",
+      "Down"
+    ],
+    "materials": [
+      "Sky_Back",
+      "Sky_Right",
+      "Sky_Front",
+      "Sky_Left",
+      "Sky_Down"
+    ],
+    "textureSuffixes": [
+      "_Back",
+      "_Right",
+      "_Front",
+      "_Left",
+      "_Down"
+    ],
+    "directories": {
+      "sky_low": "sky_low\\",
+      "sky": "sky\\"
+    },
+    "radius": 100.0,
+    "sideHeight": 10.0,
+    "distortion": 0.14999999105930328,
+    "quadraticSides": true,
+    "yPosition": 0.0,
+    "vertexColor": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "layer": {
+    "name": "SkyLayer",
+    "scrollTarget": "SkyLayer_Mesh",
+    "channel": -1,
+    "prelit": [
+      0.7843137979507446,
+      0.7843137979507446,
+      0.7843137979507446,
+      1.0
+    ],
+    "additional": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "fadeMs": 3000.0,
+    "fadeTo": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "gate": {
+    "local": "Skylayer ein?",
+    "array": "DB_Options",
+    "row": 0,
+    "column": 10,
+    "label": "Menu_Opt_Graphics Clouds"
+  },
+  "levels": [
+    {
+      "level": 1,
+      "file": "Level_01.nmo",
+      "sky": "Sky_L",
+      "letter": "L",
+      "scroll": [
+        0.009999999776482582,
+        0.009999999776482582
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 2,
+      "file": "Level_02.nmo",
+      "sky": "Sky_E",
+      "letter": "E",
+      "scroll": [
+        -0.009999999776482582,
+        0.004999999888241291
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 3,
+      "file": "Level_03.nmo",
+      "sky": "Sky_A",
+      "letter": "A",
+      "scroll": [
+        0.019999999552965164,
+        0.009999999776482582
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 4,
+      "file": "Level_04.nmo",
+      "sky": "Sky_F",
+      "letter": "F",
+      "scroll": [
+        -0.009999999776482582,
+        0.004999999888241291
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 5,
+      "file": "Level_05.nmo",
+      "sky": "Sky_C",
+      "letter": "C",
+      "scroll": [
+        0.009999999776482582,
+        0.004999999888241291
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 6,
+      "file": "Level_06.nmo",
+      "sky": "Sky_H",
+      "letter": "H",
+      "scroll": [
+        -0.009999999776482582,
+        0.004999999888241291
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 7,
+      "file": "Level_07.nmo",
+      "sky": "Sky_D",
+      "letter": "D",
+      "scroll": [
+        -0.004999999888241291,
+        -0.004999999888241291
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 8,
+      "file": "Level_08.nmo",
+      "sky": "Sky_G",
+      "letter": "G",
+      "scroll": [
+        0.009999999776482582,
+        0.0
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 9,
+      "file": "Level_09.nmo",
+      "sky": "Sky_K",
+      "letter": "K",
+      "scroll": [
+        -0.004999999888241291,
+        0.009999999776482582
+      ],
+      "light": [
+        0.9137255549430847,
+        0.9137255549430847,
+        0.9137255549430847,
+        1.0
+      ]
+    },
+    {
+      "level": 10,
+      "file": "Level_10.nmo",
+      "sky": "Sky_B",
+      "letter": "B",
+      "scroll": [
+        0.019999999552965164,
+        0.009999999776482582
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 11,
+      "file": "Level_11.nmo",
+      "sky": "Sky_J",
+      "letter": "J",
+      "scroll": [
+        0.009999999776482582,
+        0.009999999776482582
+      ],
+      "light": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "level": 12,
+      "file": "Level_12.nmo",
+      "sky": "Sky_I",
+      "letter": "I",
+      "scroll": [
+        0.009999999776482582,
+        0.03999999910593033
+      ],
+      "light": [
+        0.5882353186607361,
+        0.5882353186607361,
+        0.5882353186607361,
+        1.0
+      ]
+    }
+  ]
+}
