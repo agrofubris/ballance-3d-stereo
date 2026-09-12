@@ -55,7 +55,9 @@ is not shipped in the public source package; `npm test` prints that notice
 instead of running tests. In a maintainer workspace `npm test` runs the suite,
 and `npm run test:local` does the same explicitly. Public verification is
 `npm run lint` plus `npm run build` (and the harness when the local pack is
-present).
+present). The Cloudflare worker sources (`worker/`, `wrangler.jsonc`,
+`tsconfig.worker.json`) are maintainer-local too; the public TypeScript build
+covers the app and build scripts only.
 
 Play and builds need the converted pack at `.local/original`, built by
 `scripts/prepare-original.py` from your own Ballance install. IVP is the
