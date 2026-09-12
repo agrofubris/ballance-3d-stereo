@@ -39,13 +39,45 @@ Rapier wakes, boards, rides, departs and completes through the same lifecycle
 as native. Verified by `stage1_wood_finish` and `stage1_finish_reset` on both
 solvers.
 
-## Stage 1 Rapier finish ride fall
+## Stage 1 finish departure — remaining solver-model fidelity gap
 
-The Rapier wooden ball can slip off the departing `PE_Balloon` platform while
-the native ball stays supported; this remains the documented "falls at speed"
-ride boundary. With the recovered `DepthTestCubes` death volumes now wired
-into the Rapier path, such a fall correctly ends the run in the authored
-volume (`Quader03`, top around original Y −32) instead of falling unchecked.
-`stage1_wood_finish` therefore validates wake/boarding/departure, platform
-support and managed-body stability on both solvers, while ride completion is
-asserted on the native runtime only.
+Both solvers now survive the recovered departing ride and reach
+`level.complete` with near-identical completion timing. The earlier
+reconstruction bugs that used to drop the Rapier rider off the platform are
+fixed:
+
+- finish parts now use the recovered fixed/`startFrozen` state
+- the platform now uses its recovered total mass, authored mass center, and
+  native-measured inertia
+- finish force directions now include the recovered parent frame
+
+The remaining mismatch is the constraint solver model, not the recovered data:
+
+- Rapier departure travels roughly 22 render units along the ride axis versus
+  native ~11
+- Rapier support continuity is roughly 92% of ride ticks versus native ~99%
+- Rapier platform-local rider drift is roughly 0.49 versus native ~0.05
+- Rapier reaches a somewhat deeper vertical sag envelope; its bounded floor is
+  represented explicitly in `stage1_finish_ride` as an accepted known gap
+  (`platformPosition[1] >= -4.6`), while native remains independently held to
+  its recovered envelope (`>= -4.5`)
+
+Recovered cause (IVP 1k10 constraint semantics, verified against the upstream
+source and local probes):
+
+- `IVP_Constraint_Local` resolves each constraint's locked axes as a one-shot
+  per-PSI controller solve; there is no global iteration across constraints
+- actuator, spring, and gravity controllers use async pushes that are
+  incorporated during integration, after the constraint correction
+- stacked constraints (the recovered 639 rail plus 659 platform slider)
+  therefore retain and reload their cross-axis error until a later PSI under
+  relative load
+- Rapier solves the loaded joint island iteratively and keeps locked DOFs much
+  closer to exact
+- isolated single joints agree between the two solvers; the divergence appears
+  only in the stacked 639+659 mechanism under relative load
+
+This is not a wrong force magnitude, wrong friction, bad mass, bad joint axis,
+or random numerical error — those were independently ruled out. No empirical
+softness, force rescaling, or solver tuning is used to hide the difference;
+the harness records the bounded Rapier envelope as an explicit accepted gap.
