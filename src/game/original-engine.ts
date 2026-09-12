@@ -18,6 +18,7 @@ import { OriginalFan } from './original-fan'
 import { OriginalHinge, ORIGINAL_HINGES } from './original-hinges'
 import type { HingeKind } from './original-hinges'
 import { OriginalChain, ORIGINAL_CHAIN } from './original-chain'
+import { OriginalFinish } from './original-finish'
 import { OriginalSack } from './original-sack'
 import { OriginalSwing } from './original-swing'
 import { OriginalDepthTest, ORIGINAL_DEPTH } from './original-depth'
@@ -101,6 +102,8 @@ export class OriginalEngine {
   pushers: OriginalPusher[] = []
   hinges: OriginalHinge[] = []
   chains: OriginalChain[] = []
+  finishAdapters: OriginalFinish[] = []
+  riding = false
   sacks: OriginalSack[] = []
   lifts: OriginalLift[] = []
   sliders: OriginalSlider[] = []
@@ -282,6 +285,11 @@ export class OriginalEngine {
       this.ufo=new OriginalUfo(parent,document,materials);this.worldGroup.add(this.ufo.group)
       return
     }
+    if (/^PE_Balloon_/.test(parent.name)) {
+      const finish = new OriginalFinish(this.physics!, parent, document, materials, sector)
+      this.finishAdapters.push(finish); this.dynamics.push(...finish.parts); this.worldGroup.add(...finish.meshes)
+      return
+    }
     const objectKind = (Object.keys(ORIGINAL_OBJECTS) as OriginalObjectKind[]).find(kind => parent.name.startsWith(kind + '_'))
     if (objectKind) {
       const item = new OriginalSectorObject(this.physics!, parent, document, materials, sector, objectKind, depthEligible ? this.depthTest : undefined)
@@ -382,6 +390,7 @@ export class OriginalEngine {
     if(!hold)this.respawnSequence.reset()
     this.musicResetAge=musicData.resetDelayMs/1000;this.musicProximity.restart()
     this.endingAge=undefined;this.scene.backgroundIntensity=1
+    this.riding=false;for (const finish of this.finishAdapters) finish.reset()
     this.ufo?.reset();this.endingCamera.reset()
     this.debris?.clearIvp()
     if (!this.body || !this.resets.length) return
@@ -412,6 +421,7 @@ export class OriginalEngine {
     for (const hinge of this.hinges.filter(h => h.sector === this.state.checkpoint + 1)) hinge.reset()
     for (const pusher of this.pushers.filter(p => p.sector === this.state.checkpoint + 1)) pusher.reset()
     for (const chain of this.chains.filter(c => c.sector === this.state.checkpoint + 1)) chain.reset()
+    for (const finish of this.finishAdapters.filter(f => f.sector === this.state.checkpoint + 1)) finish.reset()
     for (const sack of this.sacks.filter(s => s.sector === this.state.checkpoint + 1)) sack.reset()
     for (const lift of this.lifts.filter(l => l.sector === this.state.checkpoint + 1)) lift.reset()
     for (const slider of this.sliders.filter(s => s.sector === this.state.checkpoint + 1)) slider.reset()
@@ -556,6 +566,8 @@ export class OriginalEngine {
     for (const pusher of this.pushers) pusher.update(player, this.state.checkpoint + 1)
     for (const hinge of this.hinges) hinge.update(player, this.state.checkpoint + 1)
     for (const chain of this.chains) if (chain.update(player, this.state.material, this.state.checkpoint + 1)) this.audio.effect(ORIGINAL_CHAIN.sound)
+    for (const finish of this.finishAdapters) finish.step(dt)
+    for (const finish of this.finishAdapters) if (finish.update(player, this.state.checkpoint + 1)) { this.keys.clear(); this.touch.x = this.touch.z = 0; this.riding = true; this.endingAge = 0 }
     for (const sack of this.sacks) sack.update(dt, this.state.checkpoint + 1)
     for (const lift of this.lifts) lift.update(player, this.state.checkpoint + 1, dt)
     for (const slider of this.sliders) slider.update(player, this.state.checkpoint + 1)
@@ -602,7 +614,7 @@ export class OriginalEngine {
         if(this.keys.has('arrowdown')||this.keys.has('s')||this.touch.z>0) held.add('backward')
       }
       this.native.input(held,this.cameraInputFrame)
-    } else driveBall(this.body, this.state.material, dx, dz, dt, this.settings.sensitivity)
+    } else if (!this.riding) driveBall(this.body, this.state.material, dx, dz, dt, this.settings.sensitivity)
     const bounds = this.ballModels.get(this.state.material)?.geometry.boundingBox
     if (!this.native&&bounds) for (const fan of this.fans) fan.apply(this.body, bounds, dt)
     this.physics.timestep = dt
@@ -623,6 +635,14 @@ export class OriginalEngine {
         if (this.state.material !== kind) { this.beginTransformation(pad, kind); return }
       }
     }
+    if (this.riding && this.endingAge !== undefined) {
+      this.endingAge += dt
+      const timing = finishData.presentation
+      const fadeT = Math.min(1, (this.endingAge * 1000) / timing.skyFadeMs)
+      const fadeFrom = timing.skyFade.fadeFrom[0]!, fadeTo = timing.skyFade.fadeTo[0]!
+      this.scene.backgroundIntensity = fadeFrom + (fadeTo - fadeFrom) * fadeT
+      if (this.endingAge * 1000 >= timing.skyFadeMs + (this.state.level === 11 ? timing.lastLevelWaitMs : timing.waitMs)) this.completeCourse()
+    }
     const reachedFinish=this.native?this.native.finish?.stage==='departing':this.finish&&Math.hypot(position.x-this.finish.position.x,position.z-this.finish.position.z)<3&&Math.abs(position.y-this.finish.position.y)<3
     if (reachedFinish && this.state.checkpoint === this.checkpoints.length) {
       this.audio.music.finish();this.audio.sync()
@@ -631,7 +651,7 @@ export class OriginalEngine {
         this.endingCamera.start()
         if(this.state.level===11)this.ufo?.start()
       }
-      else this.completeCourse()
+      else if (!this.riding) this.completeCourse()
     }
     if(!this.native)this.audio.roll(this.state.material,this.state.speed,grounded,hit?this.surfaceSounds.get(hit.collider.handle):'Stone')
   }
@@ -806,6 +826,9 @@ export class OriginalEngine {
     this.depthTest = undefined
     this.sectorObjects = []
     this.chains = []
+    for (const finish of this.finishAdapters) finish.dispose()
+    this.finishAdapters = []
+    this.riding = false
     this.sacks = []
     this.lifts = []; this.sliders = []; this.arms = []; this.swings = []
     this.cancelTransformation(); this.transformerMeshes.clear()

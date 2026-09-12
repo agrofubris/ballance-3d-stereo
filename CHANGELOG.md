@@ -7,6 +7,20 @@ any time; entries below are fork-only unless noted.
 ## [Unreleased]
 
 ### Fixed
+- Level-ending assembly: the Rapier path baked every `PE_Balloon_*` visual
+  (entry plates, platform, balloons, ropes) as permanent static collision,
+  while the original spawns them managed on final-sector activation (ropes
+  and balloons never collide; the platform departs). A new Rapier finish
+  adapter instantiates the recovered lifecycle instead — frozen plates that
+  enable on activation, platform on hidden proxy hulls that wakes, departs
+  and resets deterministically, visual-only balloons/ropes/slide — with
+  boarding ride, sky fade and timed completion.
+- Lantern glow: removed the `Laterne_Verlauf` name-hack (forced additive
+  blending, no depth write, no alpha test, 2x emissive gain) so the
+  recovered material state applies — ordinary alpha blending, alpha test,
+  depth write, unity gain. Oracle-measured against the original game: the
+  hot highlight tail and midband now track the reference instead of
+  overshooting it.
 - Stereo correctness pass: removed physical-pixel `setViewport` calls (they
   double-scaled with the pixel ratio), eye targets now resync to the live
   drawing-buffer size every frame, interlaced canvas runs at the exact live
