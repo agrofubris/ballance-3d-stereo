@@ -12,8 +12,10 @@ type FinishPart = { name: string; mesh: THREE.Mesh; body: RAPIER.RigidBody; orig
 type Force = { body: RAPIER.RigidBody; offset: THREE.Vector3 | null; world: THREE.Vector3; dir: THREE.Vector3; impulse: number }
 
 /** Rapier PE_Balloon assembly. Managed lifecycle mirrors OriginalIvpFinish:
- * plates go static on sector activation, the platform departs on boarding,
- * balloons/ropes/slide are visual-only bodies. No solver settings change. */
+ * recovered rigid-body state is authoritative (entry plates are dynamic parts
+ * that start frozen), the wake releases the whole connected island like the
+ * native cluster wake, and the platform departs on boarding. Balloons/ropes/
+ * slide are visual-only bodies. No solver settings change. */
 export class OriginalFinish {
   name: string
   sector: number
@@ -47,7 +49,8 @@ export class OriginalFinish {
       if (part.target === 'PE_Box_slide') mesh.visible = false
       else this.meshes.push(mesh)
       const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(origin.x, origin.y, origin.z).setCcdEnabled(true))
-      const fixed = part.target.startsWith('PE_Balloon_Platte')
+      // Recovered rigid-body state is authoritative; do not derive plate fixedness from the name.
+      const fixed = part.fixed
       const hulls = part.target === 'PE_Balloon_Platform'
         ? ['PE_Balloon_Col_01_Mesh', 'PE_Balloon_Col_02_Mesh', 'PE_Balloon_Col_03_Mesh', 'PE_Balloon_Col_04_Mesh', 'PE_Balloon_Col_05_Mesh', 'PE_Balloon_Col_06_Mesh']
         : [source.name!]
