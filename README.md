@@ -51,9 +51,10 @@ npm run harness -- --list   # dual-solver Stage 1 harness (docs/harness.md)
 ```
 
 The maintainer test suite lives in the untracked local `tests/` directory and
-is not shipped in the public source package; `npm test` prints that notice
-instead of running tests. In a maintainer workspace `npm test` runs the suite,
-and `npm run test:local` does the same explicitly. Public verification is
+is not shipped in the public source package. In a clean public checkout
+`npm test` prints that notice and exits successfully, while the loud
+`npm run test:local` command fails when the local suite is absent. In a
+maintainer workspace both commands run the suite. Public verification is
 `npm run lint` plus `npm run build` (and the harness when the local pack is
 present). The Cloudflare worker sources (`worker/`, `wrangler.jsonc`,
 `tsconfig.worker.json`) are maintainer-local too; the public TypeScript build
