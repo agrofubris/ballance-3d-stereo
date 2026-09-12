@@ -24,7 +24,7 @@ function walk(value: unknown, asset?: string) {
   if (Array.isArray(data.hulls) && typeof data.target === 'string' && asset) definitions.push({ asset, target: data.target, hulls: data.hulls as string[] })
   Object.values(data).forEach(v => walk(v, asset))
 }
-for (const name of ['hinge', 'lift', 'arms', 'swing', 'sack', 'chain', 'slider']) walk(read(`src/game/original-${name}-data.json`))
+for (const name of ['hinge', 'lift', 'arms', 'swing', 'sack', 'chain', 'slider', 'finish']) walk(read(`src/game/original-${name}-data.json`))
 definitions.push({ asset: 'p_modul_01', target: 'P_Modul_01_Pusher', hulls: [1,2,3].map(i => `P_Modul_01_Col0${i}_Mesh`) })
 for (const asset of ['p_box', 'p_ball_paper']) {
   const doc = read(`${pack}/${asset}.json`) as OriginalDocument

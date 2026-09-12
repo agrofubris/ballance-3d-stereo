@@ -1272,6 +1272,89 @@
         "11:P_Modul_34_01:P_Modul_34_Schiebestein"
       ]
     },
+    "Box_slide_Mesh@1.00000000000,1.00000000000,1.00000000000": {
+      "center": [
+        0,
+        0.5,
+        0
+      ],
+      "inertiaPerMass": [
+        0.1178511307,
+        0.1178511307,
+        0.1178511307
+      ],
+      "secondMoments": [
+        0.08333333582,
+        0.08333333582,
+        0.08333333582
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "positionsSha256": [
+        "9a78c2b797fca2a9f98cc9596348ea40ce85b0ee165aae14abe00124d2990980"
+      ],
+      "placements": [
+        "1:PE_Balloon_01:PE_Box_slide",
+        "2:PE_Balloon_01:PE_Box_slide",
+        "3:PE_Balloon_01:PE_Box_slide",
+        "4:PE_Balloon_01:PE_Box_slide",
+        "5:PE_Balloon_01:PE_Box_slide",
+        "6:PE_Balloon_01:PE_Box_slide",
+        "7:PE_Balloon_01:PE_Box_slide",
+        "8:PE_Balloon_01:PE_Box_slide",
+        "9:PE_Balloon_01:PE_Box_slide",
+        "10:PE_Balloon_01:PE_Box_slide",
+        "11:PE_Balloon_01:PE_Box_slide",
+        "12:PE_Balloon_01:PE_Box_slide"
+      ]
+    },
+    "PE_Balloon_Col_01_Mesh|PE_Balloon_Col_02_Mesh|PE_Balloon_Col_03_Mesh|PE_Balloon_Col_04_Mesh|PE_Balloon_Col_05_Mesh|PE_Balloon_Col_06_Mesh@1.00000000000,1.00000000000,1.00000000000": {
+      "center": [
+        0.5658640265,
+        0.4144077301,
+        -0.04509107769
+      ],
+      "inertiaPerMass": [
+        8.39672184,
+        14.05776882,
+        11.33440208
+      ],
+      "secondMoments": [
+        11.30452526,
+        0.8224193449,
+        8.35634869
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "positionsSha256": [
+        "357d310856c1dc740e0e66d8f14e9c8080a4412b45f886b0efad7faad54604bb",
+        "014f6163b5f8a4ba22881167d796a427721b88cff7c6e89919f130368685bc5e",
+        "364bd7e66918da228bfe493c300a8db6a7db420288a1e639a2e48db6988d24a3",
+        "07ff7690e3ca0bd6cf7ed83b2652e450ca719b09b41613b93be379085663350b",
+        "b28d22a1a07477812e267bb3a3bc8f2cc4fd3e9cf8e76def4fcb1dda69dc2e4a",
+        "40e52c7f51b1ca3d41b33a5a1bea914c875b373b2fc44f121922a7d42fca5fe1"
+      ],
+      "placements": [
+        "1:PE_Balloon_01:PE_Balloon_Platform",
+        "2:PE_Balloon_01:PE_Balloon_Platform",
+        "3:PE_Balloon_01:PE_Balloon_Platform",
+        "4:PE_Balloon_01:PE_Balloon_Platform",
+        "5:PE_Balloon_01:PE_Balloon_Platform",
+        "6:PE_Balloon_01:PE_Balloon_Platform",
+        "7:PE_Balloon_01:PE_Balloon_Platform",
+        "8:PE_Balloon_01:PE_Balloon_Platform",
+        "9:PE_Balloon_01:PE_Balloon_Platform",
+        "10:PE_Balloon_01:PE_Balloon_Platform",
+        "11:PE_Balloon_01:PE_Balloon_Platform",
+        "12:PE_Balloon_01:PE_Balloon_Platform"
+      ]
+    },
     "P_Modul_01_Col01_Mesh|P_Modul_01_Col02_Mesh|P_Modul_01_Col03_Mesh@1.00000000000,1.00000000000,1.00000000000": {
       "center": [
         -2.363870144,

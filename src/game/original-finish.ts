@@ -6,6 +6,7 @@ import { originalGeometry, SCALE } from './original-data.ts'
 import type { OriginalDocument, OriginalObject } from './original-data.ts'
 import { originalCollisionGroups } from './original-collisions.ts'
 import { configureBody, configureContact, ORIGINAL_TIME_FACTOR, ORIGINAL_PSI_HZ } from './original-physics.ts'
+import { applyOriginalConvexMass } from './original-inertia.ts'
 import { springImpulse } from './original-spring.ts'
 
 type FinishPart = { name: string; mesh: THREE.Mesh; body: RAPIER.RigidBody; origin: THREE.Vector3; sector: number; fixed: boolean }
@@ -63,7 +64,11 @@ export class OriginalFinish {
         this.colliders.push({ collider, body, decorative: !part.enableCollision })
       }
       configureBody(body, part)
-      body.recomputeMassPropertiesFromColliders()
+      // A multi-hull part is one recovered body: the total mass belongs to the
+      // body once (measured native inertia, authored mass center), not to each
+      // proxy collider.
+      if (part.hulls && part.hulls.length > 1) applyOriginalConvexMass(body, part.mass, part.hulls, matrix, part.massCenter)
+      else body.recomputeMassPropertiesFromColliders()
       this.parts.push({ name: object.name, mesh, body, origin, sector, fixed })
     }
     const springFrame1 = parentMatrix.clone().multiply(new THREE.Matrix4().fromArray(recovered.spring.frame1))
