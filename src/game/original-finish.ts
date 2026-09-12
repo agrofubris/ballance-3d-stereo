@@ -97,7 +97,8 @@ export class OriginalFinish {
   private installForce(f: { target: string; position: readonly number[]; positionFrameName: string; positionFrame: readonly number[]; direction: readonly number[]; directionFrame: readonly number[]; impulse: number }) {
     const core = f.positionFrameName === f.target
     const frame = this.parentMatrix.clone().multiply(new THREE.Matrix4().fromArray([...f.positionFrame]))
-    const dir = new THREE.Vector3(...f.direction as [number, number, number]).transformDirection(new THREE.Matrix4().fromArray([...f.directionFrame]))
+    const directionFrame = this.parentMatrix.clone().multiply(new THREE.Matrix4().fromArray([...f.directionFrame]))
+    const dir = new THREE.Vector3(...f.direction as [number, number, number]).transformDirection(directionFrame)
     dir.z *= -1
     const impulse = f.impulse * SCALE * ORIGINAL_TIME_FACTOR ** 2 * ORIGINAL_PSI_HZ
     if (core) {
